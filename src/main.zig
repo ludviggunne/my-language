@@ -1,20 +1,21 @@
+
 const std = @import("std");
 const lexer = @import("lexer.zig");
 
-pub fn main() void {
+pub fn main() !void {
 
-    var stdout = std.io.getStdOut().writer();
+    const stdout = std.io.getStdOut().writer();
 
-    var source =
-        \\ int x = 10;
-        \\ int y = x + 1;
-        \\ int z = x - y;
-        \\ if (x > y) { y -= 1; }
-        ;
+    // Read file
+    var bufalloc = std.heap.GeneralPurposeAllocator(.{}) {};
+    const cwd = std.fs.cwd();
+    const file = try cwd.openFile("./source.l", .{});
+    const buffer = try file.readToEndAlloc(bufalloc.allocator(), 1024);
 
-    var lex = lexer.Lexer.init(source[0..]);
+    // Lex file
+    var lex = lexer.Lexer.init(buffer);
+
     while (lex.next()) |tok| {
-        stdout.print("{s: <16} {s}\n", .{ @tagName(tok.kind), tok.loc, }) 
-            catch unreachable;
+        try stdout.print("{s: <16} {s}\n", .{ @tagName(tok.kind), tok.loc, });
     }
 }
