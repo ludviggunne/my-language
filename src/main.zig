@@ -9,6 +9,7 @@ pub fn main() void {
         \\ int x = 10;
         \\ int y = x + 1;
         \\ int z = x - y;
+        \\ if (x > y) { y -= 1; }
         ;
 
     var lex = lexer.Lexer.init(source[0..]);

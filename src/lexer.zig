@@ -1,4 +1,12 @@
 
+const std = @import("std");
+
+const keywords = std.ComptimeStringMap(TokenKind, .{
+    .{ "if",    .if_kw, },
+    .{ "else",  .else_kw, },
+    .{ "while", .while_kw, },
+});
+
 pub const TokenKind = union(enum) {
 
     identifier,  // int, var
@@ -78,9 +86,15 @@ pub const Lexer = struct {
             while (self.take()) |ch| {
 
                 if (!alpha_numeric(ch)) {
+
                     self.back();
+                    const loc = self.source[begin..self.index];
+
+                    const kind = if (keywords.get(loc)) |kind|
+                        kind else .identifier;
+
                     return .{
-                        .kind = .identifier,
+                        .kind = kind,
                         .loc = self.source[begin..self.index],
                     };
                 }
