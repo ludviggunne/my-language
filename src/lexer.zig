@@ -31,6 +31,7 @@ pub const TokenKind = union(enum) {
     neq,         // !=
 
     semi,        // ;
+    colon,       // :
     lpar,        // (
     rpar,        // )
     lbrc,        // {
@@ -119,6 +120,7 @@ pub const Lexer = struct {
         // Single operator
         var kind: ?TokenKind = switch (current) {
             ';' => .semi,
+            ':' => .colon,
             '(' => .lpar,
             ')' => .rpar,
             '{' => .lbrc,
