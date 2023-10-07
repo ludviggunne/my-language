@@ -14,7 +14,7 @@ pub fn main() void {
 
     var lex = lexer.Lexer.init(source[0..]);
     while (lex.next()) |tok| {
-        stdout.print("{s}: \"{s}\"\n", .{ @tagName(tok.kind), tok.loc, }) 
+        stdout.print("{s: <16} {s}\n", .{ @tagName(tok.kind), tok.loc, }) 
             catch unreachable;
     }
 }
