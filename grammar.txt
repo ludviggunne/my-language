@@ -1,0 +1,33 @@
+
+<prgm> ::= <stmtls>
+
+<stmtls> ::=
+    <stmt> <stmtls> |
+    <stmt>
+
+<stmt> ::=
+    <decl> ";" |
+    <expr> ";" |
+    <ifstmt> |
+    <whilestmt>
+
+<decl> ::= "ident" ":" <ident> = <expr>
+
+<expr> ::=
+    <term> "+" <expr> |
+    <term> "-" <expr> |
+    <term>
+
+<term> ::=
+    <fact> "*" <term> |
+    <fact> "/" <term> |
+    <fact>
+
+<fact> ::=
+    "(" <expr> ")" |
+    "ident" |
+    "literal"
+
+<ifstmt> ::= "if" <expr> "{" <stmtls> "}"
+
+<whilestmt> ::= "while" <expr> "{" <stmtls> "}"
