@@ -119,7 +119,7 @@ pub const Parser = struct {
 
             // If we're in a block, don't get upset about right brace
             //  just return the previous statement
-            if (is_block and peek.kind == .rbrc) {
+            if (is_block and peek.kind == .@"}") {
                 return first;
             }
 
@@ -137,11 +137,11 @@ pub const Parser = struct {
 
         const first = try self.expectRange(
             &[_] TokenKind {
-                .let_kw,
+                .@"let",
                 .identifier,
-                .if_kw,
-                .while_kw,
-                .lbrc,
+                .@"if",
+                .@"while",
+                .@"{",
             }
         );
 
@@ -151,18 +151,18 @@ pub const Parser = struct {
         var expect_semi = true;
         const stmt = switch (first.kind) {
 
-            .let_kw     => self.declaration(),
+            .@"let" => self.declaration(),
             .identifier => self.assignment(),
 
-            .if_kw => blk: {
+            .@"if" => blk: {
                 expect_semi = false;
                 break :blk self.if_statement();
             },
-            .while_kw => blk: {
+            .@"while" => blk: {
                 expect_semi = false;
                 break :blk self.while_statement();
             },
-            .lbrc => blk: {
+            .@"{" => blk: {
                 expect_semi = false;
                 break :blk self.block();
             },
@@ -172,13 +172,13 @@ pub const Parser = struct {
 
             // If we encounter an error during parsing of a single statement
             //  we skip to the next statement
-            try self.sync(.semi);
+            try self.sync(.@";");
             return self.statement();
         };
 
         // Expect ; only from certain statements
         if (expect_semi) {
-            _ = try self.expect(.semi);
+            _ = try self.expect(.@";");
         }
         return stmt;
     }
@@ -190,7 +190,7 @@ pub const Parser = struct {
 
         // <declaration> ::= "let" "identifier" "=" <expression>
         const left = try self.expect(.identifier);
-        _ = try self.expect(.assign);
+        _ = try self.expect(.@"=");
         const right = try self.expression();
 
         return self.pushNode(.{ 
@@ -207,11 +207,11 @@ pub const Parser = struct {
         const left = self.stream.next().?;
         const operator = try self.expectRange(
             &[_]TokenKind {
-                .assign,
-                .plus_eq,
-                .minus_eq,
-                .mul_eq,
-                .div_eq
+                .@"=",
+                .@"+=",
+                .@"-=",
+                .@"*=",
+                .@"/=",
             }
         );
         const right = try self.expression();
@@ -233,12 +233,12 @@ pub const Parser = struct {
             switch (peek.kind) {
 
                 // <expression> ::= <sum> ("==" | ">" | ">=" | "<" | "<=" | "!=") <expression>
-                .equal,
-                .greater,
-                .geq,
-                .less,
-                .leq,
-                .neq => {
+                .@"==",
+                .@">",
+                .@">=",
+                .@"<",
+                .@"<=",
+                .@"!=" => {
                     // Consume peeked
                     _ = self.stream.next();
                     break :block peek;
@@ -267,8 +267,8 @@ pub const Parser = struct {
             switch (peek.kind) {
 
                 // <sum> ::= <factor> ("+" | "-") <sum>
-                .plus,
-                .minus => {
+                .@"+",
+                .@"-" => {
                     // Consume peeked
                     _ = self.stream.next();
                     break :block peek;
@@ -295,20 +295,20 @@ pub const Parser = struct {
         // Factor must begin with one of these tokens
         const left = try self.expectRange(
             &[_] TokenKind {
-                .lpar,
+                .@"(",
                 .identifier,
                 .literal,
-                .minus,
-                .not,
+                .@"-",
+                .@"!",
             }        
         );
 
         switch (left.kind) {
 
             // <factor> ::= "(" <expression> ")"
-            .lpar => {
+            .@"(" => {
                 const inner = try self.expression();
-                _ = try self.expect(.rpar);
+                _ = try self.expect(.@")");
                 return inner;
             },
             
@@ -325,8 +325,8 @@ pub const Parser = struct {
 
                     switch (peek.kind) {
 
-                        .mul,
-                        .div => {
+                        .@"*",
+                        .@"/" => {
                             const operator = self.stream.next().?;
                             const right = try self.factor();
 
@@ -346,7 +346,7 @@ pub const Parser = struct {
             },
 
             // <factor> ::= "-" <factor>
-            .minus, .not => {
+            .@"-", .@"!" => {
                 
                 const operand = try self.factor();
                 return self.pushNode(.{
@@ -364,9 +364,9 @@ pub const Parser = struct {
 
     fn block(self: *Self) !usize {
 
-        _ = try self.expect(.lbrc);
+        _ = try self.expect(.@"{");
         const content = try self.statement_list(true);
-        _ = try self.expect(.rbrc);
+        _ = try self.expect(.@"}");
 
         return self.pushNode(.{
             .block = .{

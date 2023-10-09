@@ -5,10 +5,10 @@ const TokenKind = @import("token.zig").TokenKind;
 const Token     = @import("token.zig").Token;
 
 const keywords = std.ComptimeStringMap(TokenKind, .{
-    .{ "if",    .if_kw, },
-    .{ "else",  .else_kw, },
-    .{ "while", .while_kw, },
-    .{ "let",   .let_kw, },
+    .{ "if",    .@"if", },
+    .{ "else",  .@"else", },
+    .{ "while", .@"while", },
+    .{ "let",   .@"let", },
 });
 
 pub const TokenStream = struct {
@@ -165,12 +165,12 @@ pub const Lexer = struct {
 
         // Single operator
         var kind: ?TokenKind = switch (current) {
-            ';' => .semi,
-            ':' => .colon,
-            '(' => .lpar,
-            ')' => .rpar,
-            '{' => .lbrc,
-            '}' => .rbrc,
+            ';' => .@";",
+            ':' => .@":",
+            '(' => .@"(",
+            ')' => .@")",
+            '{' => .@"{",
+            '}' => .@"}",
             else => null,
         };
 
@@ -186,14 +186,14 @@ pub const Lexer = struct {
         if (eq) { _ = self.take(); }
 
         kind = switch (current) {
-            '+' => if (eq) .plus_eq  else .plus,
-            '-' => if (eq) .minus_eq else .minus,
-            '*' => if (eq) .mul_eq   else .mul,
-            '/' => if (eq) .div_eq   else .div,
-            '=' => if (eq) .equal    else .assign,
-            '>' => if (eq) .geq      else .greater,
-            '<' => if (eq) .leq      else .less,
-            '!' => if (eq) .neq      else .not,
+            '+' => if (eq) .@"+=" else .@"+",
+            '-' => if (eq) .@"-=" else .@"-",
+            '*' => if (eq) .@"*=" else .@"*",
+            '/' => if (eq) .@"/=" else .@"/",
+            '=' => if (eq) .@"==" else .@"=",
+            '>' => if (eq) .@">=" else .@">",
+            '<' => if (eq) .@"<=" else .@"<",
+            '!' => if (eq) .@"!=" else .@"!",
             else => null,
         };
 
