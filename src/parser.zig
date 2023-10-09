@@ -35,7 +35,7 @@ pub const Parser = struct {
 
     pub fn parse(self: *Self) !usize {
 
-        return try self.statement_list();     
+        return try self.statement_list(false); // not block
     }
 
     fn pushError(self: *Self, err: Error) !void {
@@ -103,7 +103,7 @@ pub const Parser = struct {
         return error.Sync;
     }
 
-    fn statement_list(self: *Self) !usize {
+    fn statement_list(self: *Self, comptime is_block: bool) anyerror!usize {
         
         const first = if (self.stream.peek()) |_| try self.statement()
             else {
@@ -115,9 +115,15 @@ pub const Parser = struct {
         };
 
         // More statements?
-        if (self.stream.peek()) |_| {
+        if (self.stream.peek()) |peek| {
 
-            const follow = try self.statement_list();
+            // If we're in a block, don't get upset about right brace
+            //  just return the previous statement
+            if (is_block and peek.kind == .rbrc) {
+                return first;
+            }
+
+            const follow = try self.statement_list(is_block);
             return self.pushNode(.{
                 .statement_list = .{
                     .first = first,
@@ -135,19 +141,31 @@ pub const Parser = struct {
                 .identifier,
                 .if_kw,
                 .while_kw,
+                .lbrc,
             }
         );
 
         // Putback token
         self.stream.back() catch unreachable;
-
+        
+        var expect_semi = true;
         const stmt = switch (first.kind) {
 
             .let_kw     => self.declaration(),
             .identifier => self.assignment(),
-            // TODO
-            .if_kw      => unreachable, //self.if_statement(),
-            .while_kw   => unreachable, //self.while_statement(),
+
+            .if_kw => blk: {
+                expect_semi = false;
+                break :blk self.if_statement();
+            },
+            .while_kw => blk: {
+                expect_semi = false;
+                break :blk self.while_statement();
+            },
+            .lbrc => blk: {
+                expect_semi = false;
+                break :blk self.block();
+            },
             else => unreachable,
 
         } catch {
@@ -158,12 +176,14 @@ pub const Parser = struct {
             return self.statement();
         };
 
-        _ = try self.expect(.semi);
+        // Expect ; only from certain statements
+        if (expect_semi) {
+            _ = try self.expect(.semi);
+        }
         return stmt;
     }
 
     pub fn declaration(self: *Self) !usize {
-
 
         // Consume let keyword
         _ = self.stream.next();
@@ -199,7 +219,7 @@ pub const Parser = struct {
         return self.pushNode(.{
             .assignment = .{
                 .identifier = left,
-                .operator = operator,
+                .operator   = operator,
                 .expression = right,
             },
         });
@@ -212,9 +232,11 @@ pub const Parser = struct {
         const operator = if (self.stream.peek()) |peek| block: {
             switch (peek.kind) {
 
-                // <expression> ::= <sum> ("==" | ">=" | "<=" | "!=") <expression>
+                // <expression> ::= <sum> ("==" | ">" | ">=" | "<" | "<=" | "!=") <expression>
                 .equal,
+                .greater,
                 .geq,
+                .less,
                 .leq,
                 .neq => {
                     // Consume peeked
@@ -338,5 +360,50 @@ pub const Parser = struct {
             // Already asserted left is one of these ^^^  
             else => unreachable,
         }
+    }
+
+    fn block(self: *Self) !usize {
+
+        _ = try self.expect(.lbrc);
+        const content = try self.statement_list(true);
+        _ = try self.expect(.rbrc);
+
+        return self.pushNode(.{
+            .block = .{
+                .content = content,
+            },
+        });
+    }
+
+    fn if_statement(self: *Self) !usize {
+        
+        // consume if keyword
+        _ = self.stream.next();
+        
+        const condition = try self.expression();
+        const blk = try self.block();
+        
+        return self.pushNode(.{
+            .if_statement = .{
+                .condition = condition,
+                .block     = blk,
+            },
+        });
+    }
+
+    fn while_statement(self: *Self) !usize {
+        
+        // consume while keyword
+        _ = self.stream.next();
+        
+        const condition = try self.expression();
+        const blk = try self.block();
+        
+        return self.pushNode(.{
+            .while_statement = .{
+                .condition = condition,
+                .block     = blk,
+            },
+        });
     }
 };

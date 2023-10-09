@@ -10,6 +10,10 @@ pub const Node = union(enum) {
         follow: usize,
     },
 
+    block: struct {
+        content: usize,
+    },
+
     declaration: struct {
         identifier: Token,
         expression: usize,
@@ -19,6 +23,16 @@ pub const Node = union(enum) {
         identifier: Token,
         operator:   Token,
         expression: usize,
+    },
+
+    if_statement: struct {
+        condition: usize,
+        block:     usize,
+    },
+
+    while_statement: struct {
+        condition: usize,
+        block:     usize,
     },
     
     unary: struct {
@@ -59,6 +73,23 @@ fn print_(ast: []Node, root: usize, indent: *usize) void {
                 a.token.loc,
             }
         ),
+
+        .block => |b| {
+            std.debug.print("BLOCK:\n", .{});
+            print_(ast, b.content, indent);
+        },
+
+        .if_statement => |i| {
+            std.debug.print("IF STATEMENT:\n", .{});
+            print_(ast, i.condition, indent);
+            print_(ast, i.block, indent);
+        },
+
+        .while_statement => |w| {
+            std.debug.print("WHILE STATEMENT:\n", .{});
+            print_(ast, w.condition, indent);
+            print_(ast, w.block, indent);
+        },
 
         .statement_list => |l| {
             std.debug.print("STATEMENT LIST:\n", .{});
