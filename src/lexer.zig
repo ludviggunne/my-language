@@ -142,7 +142,8 @@ pub const Lexer = struct {
 
                     return .{
                         .kind = kind,
-                        .loc = self.source[begin..self.index],
+                        .begin = begin,
+                        .end = self.index,
                     };
                 }
             }
@@ -157,7 +158,8 @@ pub const Lexer = struct {
                     self.back();
                     return .{
                         .kind = .literal,
-                        .loc  = self.source[begin..self.index],
+                        .begin = begin,
+                        .end = self.index,
                     };
                 }
             }
@@ -177,7 +179,8 @@ pub const Lexer = struct {
         if (kind) |k| {
             return .{
                 .kind = k,
-                .loc = self.source[begin..self.index],
+                .begin = begin,
+                .end = self.index,
             };
         }
 
@@ -200,14 +203,16 @@ pub const Lexer = struct {
         if (kind) |k| {
             return .{
                 .kind = k,
-                .loc  = self.source[begin..self.index],
+                .begin = begin,
+                .end = self.index,
             };
         }
 
         // Unrecognized character
         return .{
             .kind = .err,
-            .loc = self.source[begin..self.index],
+            .begin = begin,
+            .end = self.index,
         };
     }
 

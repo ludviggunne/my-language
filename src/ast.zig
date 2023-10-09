@@ -51,13 +51,13 @@ pub const Node = union(enum) {
     },
 };
 
-pub fn print(ast: []Node, root: usize) void {
+pub fn print(source: []const u8, ast: []Node, root: usize) void {
     
     var indent: usize = 0;    
-    print_(ast, root, &indent);
+    print_(source, ast, root, &indent);
 }
 
-fn print_(ast: []Node, root: usize, indent: *usize) void {
+fn print_(source: []const u8, ast: []Node, root: usize, indent: *usize) void {
     
     indent.* += 1;
     defer indent.* -= 1;
@@ -70,52 +70,55 @@ fn print_(ast: []Node, root: usize, indent: *usize) void {
             "ATOMIC: {s} -> {s}\n",
             .{
                 @tagName(a.token.kind),
-                a.token.loc,
+                source[a.token.begin..a.token.end],
             }
         ),
 
         .block => |b| {
             std.debug.print("BLOCK:\n", .{});
-            print_(ast, b.content, indent);
+            print_(source, ast, b.content, indent);
         },
 
         .if_statement => |i| {
             std.debug.print("IF STATEMENT:\n", .{});
-            print_(ast, i.condition, indent);
-            print_(ast, i.block, indent);
+            print_(source, ast, i.condition, indent);
+            print_(source, ast, i.block, indent);
         },
 
         .while_statement => |w| {
             std.debug.print("WHILE STATEMENT:\n", .{});
-            print_(ast, w.condition, indent);
-            print_(ast, w.block, indent);
+            print_(source, ast, w.condition, indent);
+            print_(source, ast, w.block, indent);
         },
 
         .statement_list => |l| {
             std.debug.print("STATEMENT LIST:\n", .{});
-            print_(ast, l.first, indent);
-            print_(ast, l.follow, indent);
+            print_(source, ast, l.first, indent);
+            print_(source, ast, l.follow, indent);
         },
 
         .declaration => |d| {
-            std.debug.print("DECLARATION: {s}\n", .{ d.identifier.loc });
-            print_(ast, d.expression, indent);
+            std.debug.print("DECLARATION: {s}\n", .{ source[d.identifier.begin..d.identifier.end] });
+            print_(source, ast, d.expression, indent);
         },
 
         .binary => |b| {
-            std.debug.print("BINARY: {s}\n", .{ b.operator.loc });
-            print_(ast, b.left, indent);
-            print_(ast, b.right, indent);
+            std.debug.print("BINARY: {s}\n", .{ @tagName(b.operator.kind) });
+            print_(source, ast, b.left, indent);
+            print_(source, ast, b.right, indent);
         },
 
         .assignment => |a| {
-            std.debug.print("ASSIGNMENT: {s} {s}\n", .{ a.identifier.loc, @tagName(a.operator.kind), });
-            print_(ast, a.expression, indent);
+            std.debug.print("ASSIGNMENT: {s} {s}\n", .{
+                source[a.identifier.begin..a.identifier.end],
+                @tagName(a.operator.kind)
+            });
+            print_(source, ast, a.expression, indent);
         },
 
         .unary => |u| {
-            std.debug.print("UNARY: {s}\n", .{ u.operator.loc, });
-            print_(ast, u.operand, indent);
+            std.debug.print("UNARY: {s}\n", .{ @tagName(u.operator.kind), });
+            print_(source, ast, u.operand, indent);
         },
     }
 }

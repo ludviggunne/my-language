@@ -39,6 +39,7 @@ pub const TokenKind = enum {
 
 pub const Token = struct {
 
-    kind: TokenKind,
-    loc:  []const u8,
+    kind:  TokenKind,
+    begin: usize,
+    end:   usize,
 };

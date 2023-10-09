@@ -8,7 +8,8 @@ const TokenStream = @import("lexer.zig").TokenStream;
 
 pub const Error = struct {
 
-    location: ?[]const u8,
+    begin: ?usize,
+    end:   ?usize,
     kind: union(enum) {
         expected_token: TokenKind,
         expected_token_range: []const TokenKind,
@@ -61,7 +62,8 @@ pub const Parser = struct {
         }
 
         try self.pushError(.{
-            .location = if (next) |n| n.loc else null,
+            .begin = if (next) |n| n.begin else null,
+            .end = if (next) |n| n.end else null,
             .kind = .{
                 .expected_token = kind,
             },
@@ -83,7 +85,8 @@ pub const Parser = struct {
         }
 
         try self.pushError(.{
-            .location = if (next) |n| n.loc else null,
+            .begin = if (next) |n| n.begin else null,
+            .end   = if (next) |n| n.end else null,
             .kind = .{
                 .expected_token_range = range,
             },
@@ -108,7 +111,8 @@ pub const Parser = struct {
         const first = if (self.stream.peek()) |_| try self.statement()
             else {
                 try self.pushError(.{
-                    .location = null,
+                    .begin = null,
+                    .end   = null,
                     .kind = .unexpected_eoi,
                 });
                 unreachable;
