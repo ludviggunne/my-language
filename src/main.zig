@@ -2,10 +2,9 @@
 const std = @import("std");
 const Lexer = @import("lexer.zig").Lexer;
 const Parser = @import("parser.zig").Parser;
+const SourceRef = @import("SourceRef.zig");
 
 pub fn main() !void {
-
-    const stdout = std.io.getStdOut().writer();
 
     // Read file
     var bufalloc = std.heap.GeneralPurposeAllocator(.{}) {};
@@ -17,34 +16,61 @@ pub fn main() !void {
     var lex = Lexer.init(buffer);
     var stream = try lex.collect(bufalloc.allocator());
 
-    for (stream.tokens.items) |tok| {
-        try stdout.print("{s: <16}{s}\n", .{ @tagName(tok.kind), tok.loc, });
+    var line: usize = 1;
+    std.debug.print("1:{s: <4}", .{ "", });
+    for (buffer) |c| {
+        std.debug.print("{c}", .{ c, });
+        if (c == '\n') {
+            line += 1; 
+            std.debug.print("{d}:{s: <4}", .{ line, "", });
+        }
     }
+    std.debug.print("\n\n", .{});
 
     var parser = Parser.init(bufalloc.allocator(), &stream);
     const ast = parser.parse() catch {
 
         for (parser.errors.items) |err| {
+            
+            const ref = try SourceRef.new(
+                buffer,
+                err.begin orelse buffer.len - 1,
+                err.end   orelse buffer.len,
+            );
+
+            std.debug.print("Error on line {d}: ", .{ ref.line, });
 
             switch (err.kind) {
-                .expected_token => |e| try stdout.print(
-                    "Expected token {s}, found {s}\n",
-                    .{ @tagName(e),
-                    err.location orelse "null", }
-                ),
-                .expected_token_range => |r| {
-                    try stdout.print("Expected one of ", .{});
-                    for (r) |tok| {
-                        try stdout.print("{s}, ", .{ @tagName(tok) });
-                    }
-                    try stdout.print("found {s}\n", .{ err.location orelse "null", });
+                .expected_token => |e| {
+                    std.debug.print("Expected {s}, found {s}.",
+                        .{
+                            @tagName(e.expected),
+                            if (e.found) |found| @tagName(found) else "end of input",
+                        },
+                    );
                 },
-                .unexpected_eoi => try stdout.print("Unexpected end of input\n", .{}),
+                .expected_token_range => |e| {
+                    std.debug.print("Expected one of ", .{});
+                    for (e.expected) |expected| {
+                        std.debug.print("{s}, ", .{ @tagName(expected), });
+                    }
+                    std.debug.print("found {s}\n", .{
+                        if (e.found) |found| @tagName(found) else "end of input",
+                    });
+                },
+                .unexpected_eoi => {
+                    std.debug.print("Unexpected end of input\n", .{});
+                },
             }
+
+            std.debug.print("{s}\n", .{ ref.view, });
+            for (0..ref.begin) |_| std.debug.print(" ", .{});
+            for (0..(ref.end - ref.begin)) |_| std.debug.print("^", .{});
+            std.debug.print("\n", .{});
         }
 
-        return error.NOOO;
+        return;
     };
 
-    @import("ast.zig").print(parser.nodes.items, ast);
+    @import("ast.zig").print(buffer, parser.nodes.items, ast);
 }

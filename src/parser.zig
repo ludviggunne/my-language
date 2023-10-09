@@ -11,8 +11,14 @@ pub const Error = struct {
     begin: ?usize,
     end:   ?usize,
     kind: union(enum) {
-        expected_token: TokenKind,
-        expected_token_range: []const TokenKind,
+        expected_token: struct {
+            expected: TokenKind,
+            found:    ?TokenKind,
+        },
+        expected_token_range: struct {
+            expected: []const TokenKind,
+            found: ?TokenKind
+        },
         unexpected_eoi,
     },
 };
@@ -65,7 +71,10 @@ pub const Parser = struct {
             .begin = if (next) |n| n.begin else null,
             .end = if (next) |n| n.end else null,
             .kind = .{
-                .expected_token = kind,
+                .expected_token = .{
+                    .expected = kind,
+                    .found = if (next) |n| n.kind else null,
+                },
             },
         });
 
@@ -88,13 +97,17 @@ pub const Parser = struct {
             .begin = if (next) |n| n.begin else null,
             .end   = if (next) |n| n.end else null,
             .kind = .{
-                .expected_token_range = range,
+                .expected_token_range = .{
+                    .expected = range,
+                    .found = if (next) |n| n.kind else null,
+                },
             },
         });
 
         unreachable;
     }
 
+    // TODO: Add sync for multiple tokens 
     fn sync(self: *Self, kind: TokenKind) !void {
         
         while (self.stream.next()) |next| {

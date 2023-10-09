@@ -6,7 +6,7 @@ let z = x * (3 + y);
 
 x = x * y + 22;
 
-if x > y {
+if  > y {
     
     let tmp = x;
     x = y;
