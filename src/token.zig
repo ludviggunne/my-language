@@ -2,7 +2,7 @@
 pub const TokenKind = enum {
 
     identifier,  // int, var
-    int_literal, // 1232
+    literal,     // 1232
 
     plus,        // +
     minus,       // -
@@ -32,6 +32,13 @@ pub const TokenKind = enum {
     if_kw,       // if
     while_kw,    // while
     else_kw,     // else
+    let_kw,      // let
 
     err,
+};
+
+pub const Token = struct {
+
+    kind: TokenKind,
+    loc:  []const u8,
 };

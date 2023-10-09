@@ -1,11 +1,7 @@
 
 const std = @import("std");
-const lexer = @import("lexer.zig");
-
-comptime {
-    _ = @import("parser/grammar.zig");
-    _ = @import("parser/grammar.zig").grammar;
-}
+const Lexer = @import("lexer.zig").Lexer;
+const Parser = @import("parser.zig").Parser;
 
 pub fn main() !void {
 
@@ -18,22 +14,37 @@ pub fn main() !void {
     const buffer = try file.readToEndAlloc(bufalloc.allocator(), 1024);
 
     // Lex file
-    var lex = lexer.Lexer.init(buffer);
+    var lex = Lexer.init(buffer);
+    var stream = try lex.collect(bufalloc.allocator());
 
-    while (lex.next()) |tok| {
-        try stdout.print("{s: <16} {s}\n", .{ @tagName(tok.kind), tok.loc, });
+    for (stream.tokens.items) |tok| {
+        try stdout.print("{s: <16}{s}\n", .{ @tagName(tok.kind), tok.loc, });
     }
 
-    // Print FIRST sets
-    for (std.enums.values(@import("parser/nonterm.zig").NonTerm)) |nonterm| {
+    var parser = Parser.init(bufalloc.allocator(), &stream);
+    const ast = parser.parse() catch {
 
-        const set = @import("parser/first.zig").first.get(nonterm);
+        for (parser.errors.items) |err| {
 
-        try stdout.print("{s}:\n", .{ @tagName(nonterm), });
-
-        var iter = set.iterator();
-        while (iter.next()) |term| {
-            try stdout.print("    {s}\n", .{ @tagName(term), });
+            switch (err.kind) {
+                .expected_token => |e| try stdout.print(
+                    "Expected token {s}, found {s}\n",
+                    .{ @tagName(e),
+                    err.location orelse "null", }
+                ),
+                .expected_token_range => |r| {
+                    try stdout.print("Expected one of ", .{});
+                    for (r) |tok| {
+                        try stdout.print("{s}, ", .{ @tagName(tok) });
+                    }
+                    try stdout.print("found {s}\n", .{ err.location orelse "null", });
+                },
+                .unexpected_eoi => try stdout.print("Unexpected end of input\n", .{}),
+            }
         }
-    }
+
+        return error.NOOO;
+    };
+
+    @import("ast.zig").print(parser.nodes.items, ast);
 }

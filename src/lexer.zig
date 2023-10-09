@@ -1,17 +1,82 @@
 
 const std = @import("std");
-pub const TokenKind = @import("token.zig").TokenKind;
+
+const TokenKind = @import("token.zig").TokenKind;
+const Token     = @import("token.zig").Token;
 
 const keywords = std.ComptimeStringMap(TokenKind, .{
     .{ "if",    .if_kw, },
     .{ "else",  .else_kw, },
     .{ "while", .while_kw, },
+    .{ "let",   .let_kw, },
 });
 
-pub const Token = struct {
+pub const TokenStream = struct {
 
-    kind: TokenKind,
-    loc:  []const u8,
+    const Self = @This();
+
+    tokens: std.ArrayList(Token),
+    markers: std.ArrayList(usize),
+    index: usize,
+
+    pub fn init(allocator: std.mem.Allocator) Self {
+
+        return .{
+            .tokens = std.ArrayList(Token).init(allocator),
+            .markers = std.ArrayList(usize).init(allocator),
+            .index = 0,
+        };
+    }
+
+    pub fn pushMarker(self: *Self) !void {
+        try self.markers.append(self.index);
+    }
+
+    pub fn popMarker(self: *Self) void {
+        if (self.markers.pop()) |index| {
+            self.index = index;
+        }
+    }
+
+    pub fn atEnd(self: *Self) bool {
+        return self.index == self.tokens.items.len;
+    }
+
+    pub fn current(self: *Self) ?Token {
+
+        if (self.index > 0 and self.index <= self.tokens.items.len) {
+            return self.tokens.items[self.index - 1];
+        } else return null;
+    }
+
+    pub fn next(self: *Self) ?Token {
+
+        if (!self.atEnd()) {
+            defer self.index += 1;
+            return self.tokens.items[self.index];
+        } else return null;
+    }
+
+    pub fn previous(self: *Self) ?Token {
+
+        if (self.index > 0) {
+            return self.tokens.items[self.index - 1];
+        } else return null;
+    }
+
+    pub fn peek(self: *Self) ?Token {
+
+        if (self.index < self.tokens.items.len) {
+            return self.tokens.items[self.index];
+        } else return null;
+    }
+
+    pub fn back(self: *Self) !void {
+        
+        if (self.index > 0) {
+            self.index -= 1;
+        } else return error.AtBeginning;
+    }
 };
 
 pub const Lexer = struct {
@@ -29,6 +94,18 @@ pub const Lexer = struct {
             .index  = 0,
             .peeked = null,
         };
+    }
+
+    pub fn collect(self: *Self, allocator: std.mem.Allocator) !TokenStream {
+
+        var stream = TokenStream.init(allocator);
+
+        while (self.next()) |token| {
+
+            try stream.tokens.append(token);
+        }
+
+        return stream;
     }
 
     pub fn next(self: *Self) ?Token {
@@ -79,7 +156,7 @@ pub const Lexer = struct {
                 if (!numeric(ch)) {
                     self.back();
                     return .{
-                        .kind = .int_literal,
+                        .kind = .literal,
                         .loc  = self.source[begin..self.index],
                     };
                 }

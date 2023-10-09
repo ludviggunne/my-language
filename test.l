@@ -1,8 +1,5 @@
 
-x: i32 = 0;
-y: i32 = 1;
+let y = 10;
+let x = 11;
 
-if x > y {
-    x -= 1;
-    y += x;
-}
+let z = (x * 3 + y;
