@@ -1,7 +1,7 @@
 
 const std = @import("std");
 
-pub const Token = @import("token.zig").Token;
+pub const Token = @import("Token.zig");
 
 pub const Node = union(enum) {
 
@@ -9,6 +9,8 @@ pub const Node = union(enum) {
         first: usize,
         follow: usize,
     },
+
+    empty,
 
     block: struct {
         content: usize,
@@ -120,5 +122,7 @@ fn print_(source: []const u8, ast: []Node, root: usize, indent: *usize) void {
             std.debug.print("UNARY: {s}\n", .{ @tagName(u.operator.kind), });
             print_(source, ast, u.operand, indent);
         },
+
+        .empty => std.debug.print("EMPTY\n", .{}),
     }
 }

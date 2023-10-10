@@ -1,10 +1,9 @@
 
 const std = @import("std");
 
-const TokenKind = @import("token.zig").TokenKind;
-const Token     = @import("token.zig").Token;
+const Token     = @import("Token.zig");
 
-const keywords = std.ComptimeStringMap(TokenKind, .{
+const keywords = std.ComptimeStringMap(Token.Kind, .{
     .{ "if",    .@"if", },
     .{ "else",  .@"else", },
     .{ "while", .@"while", },
@@ -166,7 +165,7 @@ pub const Lexer = struct {
         }
 
         // Single operator
-        var kind: ?TokenKind = switch (current) {
+        var kind: ?Token.Kind = switch (current) {
             ';' => .@";",
             ':' => .@":",
             '(' => .@"(",

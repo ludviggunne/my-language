@@ -1,5 +1,5 @@
 
-pub const TokenKind = enum {
+pub const Kind = enum {
 
     identifier, // int, var
     literal,    // 1232
@@ -37,9 +37,6 @@ pub const TokenKind = enum {
     err,
 };
 
-pub const Token = struct {
-
-    kind:  TokenKind,
-    begin: usize,
-    end:   usize,
-};
+kind:  Kind,
+begin: usize,
+end:   usize,
