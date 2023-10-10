@@ -13,7 +13,7 @@ const Self = @This();
 const Section       = std.ArrayList(u8);
 const SectionWriter = @typeInfo(@TypeOf(Section.writer)).Fn.return_type.?;
 
-const Error = union(enum) {
+pub const Error = union(enum) {
     undeclared_variable: struct {
         begin: usize,
         end:   usize,
@@ -238,6 +238,14 @@ fn assignment(self: *Self, node: anytype) anyerror!Register {
 
     if (self.intern_pool.get(name) == null) {
 
+        try self.errors.append(
+            .{
+                .undeclared_variable = .{
+                    .begin = node.identifier.begin,
+                    .end   = node.identifier.end,
+                },
+            }
+        );
         return error.UndeclaredVariable;
     }
 

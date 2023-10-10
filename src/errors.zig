@@ -1,6 +1,59 @@
 
+// TODO: refactor
+
 const SourceRef = @import("SourceRef.zig");
-const Parser = @import("Parser.zig");
+const Parser    = @import("Parser.zig");
+const CodeGen   = @import("CodeGen.zig");
+
+pub fn reportCodeGenError(err: CodeGen.Error, writer: anytype, source: []const u8) !void {
+
+    switch (err) {
+        .redeclaration => |e| {
+
+            const ref = try SourceRef.new(
+                source,
+                e.begin,
+                e.end,
+            );
+
+            try writer.print("Error on line {d}: ", .{ ref.line, });
+
+            try writer.print("Redeclaration of variable {s}.\n",
+                .{
+                    source[e.begin..e.end],
+                },
+            );
+
+            try writer.print("{s}\n", .{ ref.view, });
+            for (0..ref.begin) |_| try writer.print(" ", .{});
+            for (0..(ref.end - ref.begin)) |_| try writer.print("^", .{});
+            try writer.print("\n", .{});
+        },
+
+        .undeclared_variable => |e| {
+
+            const ref = try SourceRef.new(
+                source,
+                e.begin,
+                e.end,
+            );
+
+            try writer.print("Error on line {d}: ", .{ ref.line, });
+
+            try writer.print("Undeclared variable {s}.\n",
+                .{
+                    source[e.begin..e.end],
+                },
+            );
+
+            try writer.print("{s}\n", .{ ref.view, });
+            for (0..ref.begin) |_| try writer.print(" ", .{});
+            for (0..(ref.end - ref.begin)) |_| try writer.print("^", .{});
+            try writer.print("\n", .{});
+        },
+    }
+
+}
 
 pub fn reportParseError(err: Parser.Error, writer: anytype, source: []const u8) !void {
 
