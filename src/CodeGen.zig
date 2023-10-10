@@ -366,6 +366,8 @@ fn statementList(self: *Self, node: anytype) anyerror!Register {
 
 fn arithmetic(self: *Self, node: anytype) anyerror!Register {
 
+    // !!! Operands are switched
+
     const left  = &self.ast.nodes[node.left];
     const right = &self.ast.nodes[node.right];
 
@@ -380,8 +382,8 @@ fn arithmetic(self: *Self, node: anytype) anyerror!Register {
             \\    addq     %{0s}, %{1s}
             \\
             , .{
-                @tagName(left_register),
                 @tagName(right_register),
+                @tagName(left_register),
             }
         ),
 
@@ -389,8 +391,8 @@ fn arithmetic(self: *Self, node: anytype) anyerror!Register {
             \\    subq     %{0s}, %{1s}
             \\
             , .{
-                @tagName(left_register),
                 @tagName(right_register),
+                @tagName(left_register),
             }
         ),
 
@@ -400,8 +402,8 @@ fn arithmetic(self: *Self, node: anytype) anyerror!Register {
             \\    movq     %rax, %{1s}
             \\
             , .{
-                @tagName(left_register),
                 @tagName(right_register),
+                @tagName(left_register),
             }
         ),
 
@@ -412,15 +414,15 @@ fn arithmetic(self: *Self, node: anytype) anyerror!Register {
             \\    movq     %rax, %{1s}
             \\
             , .{
-                @tagName(left_register),
                 @tagName(right_register),
+                @tagName(left_register),
             }
         ),
 
         else => unreachable, // codegen for arithmetic operator not implemented
     }
 
-    return right_register;
+    return left_register;
 }
 
 fn unary(self: *Self, node: anytype) anyerror!Register {
