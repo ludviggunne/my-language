@@ -1,7 +1,15 @@
 
+// TODO: Refactor as "file struct"
+
 const std = @import("std");
 
 pub const Token = @import("Token.zig");
+
+pub const Ast = struct {
+
+    root: usize,
+    nodes: []Node,
+};
 
 pub const Node = union(enum) {
 
@@ -57,13 +65,13 @@ pub const Node = union(enum) {
     },
 };
 
-pub fn print(source: []const u8, ast: []Node, root: usize) void {
+pub fn print(source: []const u8, ast: *const Ast) void {
     
     var indent: usize = 0;    
-    print_(source, ast, root, &indent);
+    print_(source, ast.nodes, ast.root, &indent);
 }
 
-fn print_(source: []const u8, ast: []Node, root: usize, indent: *usize) void {
+fn print_(source: []const u8, ast: []const Node, root: usize, indent: *usize) void {
     
     indent.* += 1;
     defer indent.* -= 1;

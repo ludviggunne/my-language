@@ -37,9 +37,21 @@ pub fn init(allocator: std.mem.Allocator, lexer: *Lexer) Self {
     };
 }
 
-pub fn parse(self: *Self) !usize {
+pub fn deinit(self: *Self) void {
 
-    return try self.statementList(false); // not block
+    self.nodes.deinit();
+    self.errors.deinit();
+}
+
+pub fn parse(self: *Self) !ast.Ast {
+
+    const result = try self.statementList(false); // not block
+    return if (self.errors.items.len > 0) 
+        error.SomeError 
+    else .{
+        .root  = result,
+        .nodes = self.nodes.items,
+    };
 }
 
 fn pushError(self: *Self, err: Error) !void {
@@ -150,7 +162,7 @@ fn sync(self: *Self) void {
 }
 
 fn statementList(self: *Self, comptime is_block: bool) anyerror!usize {
-    
+
     const first = if (self.lexer.peek()) |_| try self.statement()
         else return self.pushNode(.empty);
 
@@ -175,6 +187,10 @@ fn statementList(self: *Self, comptime is_block: bool) anyerror!usize {
 
 fn statement(self: *Self) !usize {
 
+    if (self.lexer.peek() == null) {
+        return self.pushNode(.empty);
+    }
+
     // Expect without consuming
     const first = try self.expectRangeNoNext(
         &[_] Token.Kind {
@@ -190,9 +206,9 @@ fn statement(self: *Self) !usize {
     var expect_semi = true;
     const stmt = switch (first.kind) {
 
-        .@"let" => self.declaration(),
+        .@"let"     => self.declaration(),
         .identifier => self.assignment(),
-        .@"print" => self.printStatement(),
+        .@"print"   => self.printStatement(),
 
         .@"if" => blk: {
             expect_semi = false;
@@ -213,7 +229,7 @@ fn statement(self: *Self) !usize {
         // If we encounter an error during parsing of a single statement
         //  we skip to the next statement
         self.sync();
-        return self.statement();
+        return try self.statement();
     };
 
     // Expect ; only from certain statements

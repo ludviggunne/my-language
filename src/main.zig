@@ -1,10 +1,15 @@
 
-const std = @import("std");
-const Lexer = @import("Lexer.zig");
-const Parser = @import("Parser.zig");
+const std       = @import("std");
+
+const Lexer     = @import("Lexer.zig");
+const Parser    = @import("Parser.zig");
 const SourceRef = @import("SourceRef.zig");
+const errors    = @import("errors.zig");
+const CodeGen   = @import("CodeGen.zig");
 
 pub fn main() !void {
+
+    const stdout = std.io.getStdOut().writer();
 
     // Read file
     var bufalloc = std.heap.GeneralPurposeAllocator(.{}) {};
@@ -30,46 +35,22 @@ pub fn main() !void {
     const ast = parser.parse() catch {
 
         for (parser.errors.items) |err| {
-            
-            const ref = try SourceRef.new(
-                buffer,
-                err.begin orelse buffer.len - 1,
-                err.end   orelse buffer.len,
-            );
-
-            std.debug.print("Error on line {d}: ", .{ ref.line, });
-
-            switch (err.kind) {
-                .expected_token => |e| {
-                    std.debug.print("Expected {s}, found {s}.",
-                        .{
-                            @tagName(e.expected),
-                            if (e.found) |found| @tagName(found) else "end of input",
-                        },
-                    );
-                },
-                .expected_token_range => |e| {
-                    std.debug.print("Expected one of ", .{});
-                    for (e.expected) |expected| {
-                        std.debug.print("{s}, ", .{ @tagName(expected), });
-                    }
-                    std.debug.print("found {s}\n", .{
-                        if (e.found) |found| @tagName(found) else "end of input",
-                    });
-                },
-                .unexpected_eoi => {
-                    std.debug.print("Unexpected end of input\n", .{});
-                },
-            }
-
-            std.debug.print("{s}\n", .{ ref.view, });
-            for (0..ref.begin) |_| std.debug.print(" ", .{});
-            for (0..(ref.end - ref.begin)) |_| std.debug.print("^", .{});
-            std.debug.print("\n", .{});
+            try errors.reportParseError(err, stdout, buffer);            
         }
 
         return;
     };
 
-    @import("ast.zig").print(buffer, parser.nodes.items, ast);
+    @import("ast.zig").print(buffer, &ast);
+
+    std.debug.print("\n\n", .{});
+
+    var codegen = CodeGen.init(&ast, bufalloc.allocator(), buffer);
+    codegen.initWriters();
+    try codegen.generate();
+
+    var output = try cwd.createFile("./output.S", .{});
+    var out_writer = output.writer();
+    try codegen.output(&stdout);
+    try codegen.output(&out_writer);
 }
