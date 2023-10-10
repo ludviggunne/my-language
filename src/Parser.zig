@@ -180,6 +180,7 @@ fn statement(self: *Self) !usize {
         &[_] Token.Kind {
             .@"let",
             .identifier,
+            .@"print",
             .@"if",
             .@"while",
             .@"{",
@@ -191,6 +192,7 @@ fn statement(self: *Self) !usize {
 
         .@"let" => self.declaration(),
         .identifier => self.assignment(),
+        .@"print" => self.printStatement(),
 
         .@"if" => blk: {
             expect_semi = false;
@@ -398,6 +400,18 @@ pub fn factor(self: *Self) !usize {
         // Already asserted left is one of these ^^^  
         else => unreachable,
     }
+}
+
+fn printStatement(self: *Self) !usize {
+
+    _ = try self.expect(.@"print");
+    const argument = try self.expression();
+
+    return self.pushNode(.{
+        .print_statement = .{
+            .argument = argument,
+        },
+    });
 }
 
 // TODO: Empty block

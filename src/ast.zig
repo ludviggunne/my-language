@@ -27,6 +27,10 @@ pub const Node = union(enum) {
         expression: usize,
     },
 
+    print_statement: struct {
+        argument: usize,
+    },
+
     if_statement: struct {
         condition: usize,
         block:     usize,
@@ -121,6 +125,11 @@ fn print_(source: []const u8, ast: []Node, root: usize, indent: *usize) void {
         .unary => |u| {
             std.debug.print("UNARY: {s}\n", .{ @tagName(u.operator.kind), });
             print_(source, ast, u.operand, indent);
+        },
+
+        .print_statement => |p| {
+            std.debug.print("PRINT:\n", .{});
+            print_(source, ast, p.argument, indent);
         },
 
         .empty => std.debug.print("EMPTY\n", .{}),
