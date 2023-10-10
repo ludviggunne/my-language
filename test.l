@@ -6,8 +6,6 @@ let z = x * (3 + y);
 
 x = x * y + 22;
 
-while true { }
-
 if x > y {
     
     let tmp = x;

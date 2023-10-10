@@ -1,7 +1,7 @@
 
 const std = @import("std");
-const Lexer = @import("lexer.zig").Lexer;
-const Parser = @import("parser.zig").Parser;
+const Lexer = @import("Lexer.zig");
+const Parser = @import("Parser.zig");
 const SourceRef = @import("SourceRef.zig");
 
 pub fn main() !void {
@@ -13,8 +13,7 @@ pub fn main() !void {
     const buffer = try file.readToEndAlloc(bufalloc.allocator(), 1024);
 
     // Lex file
-    var lex = Lexer.init(buffer);
-    var stream = try lex.collect(bufalloc.allocator());
+    var lexer = Lexer.init(buffer);
 
     var line: usize = 1;
     std.debug.print("1:{s: <4}", .{ "", });
@@ -27,7 +26,7 @@ pub fn main() !void {
     }
     std.debug.print("\n\n", .{});
 
-    var parser = Parser.init(bufalloc.allocator(), &stream);
+    var parser = Parser.init(bufalloc.allocator(), &lexer);
     const ast = parser.parse() catch {
 
         for (parser.errors.items) |err| {
