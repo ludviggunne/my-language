@@ -25,11 +25,13 @@ pub const Node = union(enum) {
     },
 
     declaration: struct {
+        symbol:     usize = 0,
         identifier: Token,
         expression: usize,
     },
 
     assignment: struct {
+        symbol:     usize = 0,
         identifier: Token,
         operator:   Token,
         expression: usize,
@@ -62,6 +64,8 @@ pub const Node = union(enum) {
     },
 
     atomic: struct {
+        symbol: usize = 0,
+        literal: ?[]const u8 = null,
         token: Token,
     },
 };

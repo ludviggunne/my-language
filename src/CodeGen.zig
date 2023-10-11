@@ -6,23 +6,14 @@ const Node         = @import("ast.zig").Node;
 const Token        = @import("Token.zig");
 const RegisterPool = @import("RegisterPool.zig");
 const Register     = RegisterPool.Register;
-const InternPool   = @import("InternPool.zig");
+const SymbolTable  = @import("SymbolTable.zig");
 
 const Self = @This();
 
 const Section       = std.ArrayList(u8);
 const SectionWriter = @typeInfo(@TypeOf(Section.writer)).Fn.return_type.?;
 
-pub const Error = union(enum) {
-    undeclared_variable: struct {
-        begin: usize,
-        end:   usize,
-    },
-    redeclaration: struct {
-        begin: usize,
-        end:   usize,
-    },
-};
+pub const Error = union(enum) {};
 
 ast:           *const Ast,
 text_section:  Section,
@@ -30,12 +21,11 @@ data_section:  Section,
 text_writer:   SectionWriter,
 data_writer:   SectionWriter,
 register_pool: RegisterPool,
-intern_pool:   InternPool,
-source:        []const u8,
+symbol_table:  *SymbolTable,
 errors:        std.ArrayList(Error),
 label_counter: usize,
 
-pub fn init(ast: *const Ast, allocator: std.mem.Allocator, source: []const u8) Self {
+pub fn init(ast: *const Ast, allocator: std.mem.Allocator, symbol_table: *SymbolTable) Self {
 
     var text_section = Section.init(allocator);
     var data_section = Section.init(allocator);
@@ -47,8 +37,7 @@ pub fn init(ast: *const Ast, allocator: std.mem.Allocator, source: []const u8) S
         .text_writer   = undefined,
         .data_writer   = undefined,
         .register_pool = RegisterPool.init(),
-        .intern_pool   = InternPool.init(allocator),
-        .source        = source,
+        .symbol_table  = symbol_table,
         .errors        = std.ArrayList(Error).init(allocator),
         .label_counter = 0,
     };
@@ -85,11 +74,6 @@ pub fn output(self: *Self, writer: anytype) !void {
                 self.data_section.items,       
             }
         );
-}
-
-fn tokenString(self: *Self, token: Token) []const u8 {
-
-    return self.source[token.begin..token.end];
 }
 
 fn newLabel(self: *Self) usize {
@@ -263,21 +247,6 @@ fn ifStatement(self: *Self, node: anytype) anyerror!Register {
 
 fn assignment(self: *Self, node: anytype) anyerror!Register {
 
-    const name = self.tokenString(node.identifier);
-
-    if (self.intern_pool.get(name) == null) {
-
-        try self.errors.append(
-            .{
-                .undeclared_variable = .{
-                    .begin = node.identifier.begin,
-                    .end   = node.identifier.end,
-                },
-            }
-        );
-        return error.UndeclaredVariable;
-    }
-
     const expression = &self.ast.nodes[node.expression];
     const expression_register = try self.generate_(expression);
     defer self.register_pool.deallocate(expression_register);
@@ -288,69 +257,69 @@ fn assignment(self: *Self, node: anytype) anyerror!Register {
     switch (node.operator.kind) {
 
         .@"=" => try self.text_writer.print(
-            \\    movq     %{0s}, var_{1s}(%rip)
+            \\    movq     %{0s}, var_{1d}(%rip)
             \\
             , .{
                 @tagName(expression_register),
-                name,
+                node.symbol,
             }
         ),
 
         .@"+=" => try self.text_writer.print(
-            \\    movq     var_{0s}(%rip), %{1s}
+            \\    movq     var_{0d}(%rip), %{1s}
             \\    addq     %{2s}, %{1s}
-            \\    movq     %{1s}, var_{0s}(%rip)
+            \\    movq     %{1s}, var_{0d}(%rip)
             \\
             , .{
-                name,
+                node.symbol,
                 @tagName(scratch_register),
                 @tagName(expression_register),
             }
         ),
 
         .@"-=" => try self.text_writer.print(
-            \\    movq     var_{0s}(%rip), %{1s}
+            \\    movq     var_{0d}(%rip), %{1s}
             \\    subq     %{2s}, %{1s}
-            \\    movq     %{1s}, var_{0s}(%rip)
+            \\    movq     %{1s}, var_{0d}(%rip)
             \\
             , .{
-                name,
+                node.symbol,
                 @tagName(scratch_register),
                 @tagName(expression_register),
             }
         ),
 
         .@"*=" => try self.text_writer.print(
-            \\    movq     var_{0s}(%rip), %rax
+            \\    movq     var_{0d}(%rip), %rax
             \\    imulq    %{1s}
-            \\    movq     %rax, var_{0s}(%rip)
+            \\    movq     %rax, var_{0d}(%rip)
             \\
             , .{
-                name,
+                node.symbol,
                 @tagName(expression_register),
             }
         ),
 
         .@"/=" => try self.text_writer.print(
-            \\    movq     var_{0s}(%rip), %rax
+            \\    movq     var_{0d}(%rip), %rax
             \\    cqo
             \\    idivq    %{1s}
-            \\    movq     %rax, var_{0s}(%rip)
+            \\    movq     %rax, var_{0d}(%rip)
             \\
             , .{
-                name,
+                node.symbol,
                 @tagName(expression_register),
             }
         ),
 
         .@"%=" => try self.text_writer.print(
-            \\    movq     var_{0s}(%rip), %rax
+            \\    movq     var_{0d}(%rip), %rax
             \\    cqo
             \\    idivq    %{1s}
-            \\    movq     %rdx, var_{0s}(%rip)
+            \\    movq     %rdx, var_{0d}(%rip)
             \\
             , .{
-                name,
+                node.symbol,
                 @tagName(expression_register),
             }
         ),
@@ -363,29 +332,11 @@ fn assignment(self: *Self, node: anytype) anyerror!Register {
 
 fn declaration(self: *Self, node: anytype) anyerror!Register {
 
-    const name = self.tokenString(node.identifier);
-
-    if (self.intern_pool.get(name)) |_| {
-
-        try self.errors.append(
-            .{ .redeclaration =
-                .{
-                    .begin = node.identifier.begin,
-                    .end   = node.identifier.end,
-                }
-            }
-        );
-
-        return error.Redeclaration;
-    }
-
-    _ = try self.intern_pool.getDeclare(name);
-
     try self.data_writer.print(
-        \\    var_{0s}: .quad 0
+        \\    var_{0d}: .quad 0
         \\
         , .{
-            name,
+            node.symbol,
         }
     );
 
@@ -396,11 +347,11 @@ fn declaration(self: *Self, node: anytype) anyerror!Register {
     defer self.register_pool.deallocate(expression_register);
 
     try self.text_writer.print(
-        \\    movq     %{0s}, var_{1s}(%rip)
+        \\    movq     %{0s}, var_{1d}(%rip)
         \\
         , .{
             @tagName(expression_register),
-            name,
+            node.symbol,
         }
     );
 
@@ -581,30 +532,14 @@ fn atomic(self: *Self, node: anytype) anyerror!Register {
 
         .identifier => {
             
-            if (self.intern_pool.get(self.tokenString(node.token))) |_| {
-
-                try self.text_writer.print(
-                    \\    movq     var_{0s}(%rip), %{1s}
-                    \\
-                    , .{
-                        self.tokenString(node.token),
-                        @tagName(result),
-                    }
-                );
-
-            } else {
-
-                try self.errors.append(
-                    .{
-                        .undeclared_variable = .{
-                            .begin = node.token.begin,
-                            .end   = node.token.end,
-                        },
-                    }       
-                );
-
-                return error.UndeclaredVariable;
-            }
+            try self.text_writer.print(
+                \\    movq     var_{0d}(%rip), %{1s}
+                \\
+                , .{
+                    node.symbol,
+                    @tagName(result),
+                }
+            );
         },
 
         .literal => {
@@ -613,7 +548,7 @@ fn atomic(self: *Self, node: anytype) anyerror!Register {
                 \\    movq     ${0s}, %{1s}
                 \\
                 , .{
-                    self.tokenString(node.token),
+                    node.literal.?,
                     @tagName(result), 
                 }
             );

@@ -1,9 +1,14 @@
 
-let x = 500;
+let x = 10;
+let y = 20;
 
-while x > 10 {
-
+{
+    let y = 30;
+    x = 40;
+    
     print x;
-
-    x /= 2;
+    print y;
 }
+
+print x;
+print y;
