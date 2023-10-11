@@ -206,6 +206,8 @@ fn ifStatement(self: *Self, node: anytype) anyerror!Register {
     defer self.register_pool.deallocate(condition_register);
 
     const done_label = self.newLabel();
+    const has_else = node.else_block != null;
+    const else_label = if (has_else) self.newLabel() else undefined;
 
     try self.text_writer.print(
         \\    cmpq     $0, %{0s}
@@ -213,13 +215,29 @@ fn ifStatement(self: *Self, node: anytype) anyerror!Register {
         \\
         , .{
             @tagName(condition_register),
-            done_label,
+            if (has_else) else_label else done_label,
         }
     );
 
     const block_ = &self.ast.nodes[node.block];
     const block_register = try self.generate_(block_);
     defer self.register_pool.deallocate(block_register);
+
+    if (has_else) {
+        try self.text_writer.print(
+            \\    jmp      .L{0d}
+            \\.L{1d}:
+            \\
+            , .{
+                done_label,
+                else_label,
+            }
+        );
+
+        const else_ = &self.ast.nodes[node.else_block.?];
+        const else_register = try self.generate_(else_);
+        defer self.register_pool.deallocate(else_register);
+    }
 
     try self.text_writer.print(
         \\.L{0d}:
@@ -330,10 +348,10 @@ fn comparison(self: *Self, node: anytype) anyerror!Register {
     const done_label  = self.newLabel();
 
     const jump_instruction: []const u8 = switch (node.operator.kind) {
-        .@"==" => "je ",
-        .@"!=" => "jne",
-        .@">"  => "jg ",
-        .@"<"  => "jl ",
+        .@"==" => "je  ",
+        .@"!=" => "jne ",
+        .@">"  => "jg  ",
+        .@"<"  => "jl  ",
         else   => unreachable, // codegen for comparison operator not implemented
     };
 

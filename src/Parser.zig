@@ -452,11 +452,21 @@ fn ifStatement(self: *Self) !usize {
     
     const condition = try self.expression();
     const blk = try self.block();
+
+    var else_block: ?usize = null;
+    if (self.lexer.peek()) |peek| {
+        if (peek.kind == .@"else") {
+            // Consume else keyword
+            _ = self.lexer.next();
+            else_block = try self.block();
+        }
+    }
     
     return self.pushNode(.{
         .if_statement = .{
-            .condition = condition,
-            .block     = blk,
+            .condition  = condition,
+            .block      = blk,
+            .else_block = else_block,
         },
     });
 }

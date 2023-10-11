@@ -40,8 +40,9 @@ pub const Node = union(enum) {
     },
 
     if_statement: struct {
-        condition: usize,
-        block:     usize,
+        condition:  usize,
+        block:      usize,
+        else_block: ?usize,
     },
 
     while_statement: struct {
