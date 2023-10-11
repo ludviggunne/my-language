@@ -431,10 +431,16 @@ fn printStatement(self: *Self) !usize {
     });
 }
 
-// TODO: Empty block
 fn block(self: *Self) !usize {
 
     _ = try self.expect(.@"{");
+    if (self.lexer.peek()) |peek| {
+        if (peek.kind == .@"}") {
+            // Empty block
+            _ = self.lexer.next(); // }
+            return self.pushNode(.empty);
+        }
+    }
     const content = try self.statementList(true);
     _ = try self.expect(.@"}");
 
