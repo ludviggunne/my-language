@@ -1,14 +1,25 @@
 
-let x = 10;
-let y = 20;
+let number = 2;
 
-{
-    let y = 30;
-    x = 40;
+while number <= 100 {
     
-    print x;
-    print y;
-}
+    let prime = 1;
+    let divisor = 2;
+    
+    while divisor < number / 2 {
+        
+        if number % divisor == 0 {
+            
+            prime = 0;
+            break;
+        }
 
-print x;
-print y;
+        divisor += 1;
+    }
+
+    if prime {
+        print number;
+    }
+
+    number += 1;
+}

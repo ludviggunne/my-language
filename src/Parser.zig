@@ -146,7 +146,7 @@ fn sync(self: *Self) void {
     
     // Skip til ;
     while (self.lexer.next()) |next| {
-        if (next.kind == .@";") {
+        if (next.kind == .@";" or next.kind == .@"{") {
             break;
         }
     }
@@ -199,6 +199,7 @@ fn statement(self: *Self) !usize {
             .@"print",
             .@"if",
             .@"while",
+            .@"break",
             .@"{",
         }
     );
@@ -207,21 +208,31 @@ fn statement(self: *Self) !usize {
     const stmt = switch (first.kind) {
 
         .@"let"     => self.declaration(),
+
         .identifier => self.assignment(),
+
         .@"print"   => self.printStatement(),
+
+        .@"break" => blk: {
+            _ = self.lexer.next(); 
+            break :blk self.pushNode(.break_statement);
+        },
 
         .@"if" => blk: {
             expect_semi = false;
             break :blk self.ifStatement();
         },
+
         .@"while" => blk: {
             expect_semi = false;
             break :blk self.whileStatement();
         },
+
         .@"{" => blk: {
             expect_semi = false;
             break :blk self.block();
         },
+
         else => unreachable,
 
     } catch {

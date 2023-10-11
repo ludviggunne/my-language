@@ -9,6 +9,7 @@ const keywords = std.ComptimeStringMap(Token.Kind, .{
     .{ "while", .@"while", },
     .{ "let",   .@"let", },
     .{ "print", .@"print", },
+    .{ "break", .@"break", },
 });
 
 const Self = @This();

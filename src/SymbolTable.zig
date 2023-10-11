@@ -138,7 +138,7 @@ fn resolve_(self: *Self, index: usize) !void {
 
     switch (node.*) {
 
-        .empty => {},
+        .empty, .break_statement => {},
         
         .statement_list => |v| {
             try self.resolve_(v.first); 

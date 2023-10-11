@@ -24,6 +24,7 @@ register_pool: RegisterPool,
 symbol_table:  *SymbolTable,
 errors:        std.ArrayList(Error),
 label_counter: usize,
+break_stack:   std.ArrayList(usize),
 
 pub fn init(ast: *const Ast, allocator: std.mem.Allocator, symbol_table: *SymbolTable) Self {
 
@@ -40,6 +41,7 @@ pub fn init(ast: *const Ast, allocator: std.mem.Allocator, symbol_table: *Symbol
         .symbol_table  = symbol_table,
         .errors        = std.ArrayList(Error).init(allocator),
         .label_counter = 0,
+        .break_stack   = std.ArrayList(usize).init(allocator),
     };
 }
 
@@ -66,7 +68,7 @@ pub fn output(self: *Self, writer: anytype) !void {
         \\    movq     $0, %rdi
         \\    syscall
         \\.section .data
-        \\    __fmt: .asciz "%d\n"
+        \\    __fmt: .asciz "> %d\n"
         \\{1s}
         , 
             .{
@@ -86,8 +88,9 @@ fn generate_(self: *Self, node: *const Node) anyerror!Register {
 
     const result = switch (node.*) {
 
-        // We need to return something ...
-        .empty => try self.register_pool.allocate(),
+        .empty => .none,
+
+        .break_statement => try self.breakStatement(), 
 
         .statement_list => |v| try self.statementList(v),
 
@@ -141,7 +144,7 @@ fn printStatement(self: *Self, node: anytype) anyerror!Register {
         }
     );
 
-    return argument_register;
+    return .none;
 }
 
 fn block(self: *Self, node: anytype) anyerror!Register {
@@ -154,6 +157,9 @@ fn whileStatement(self: *Self, node: anytype) anyerror!Register {
 
     const begin_label = self.newLabel();
     const done_label = self.newLabel();
+
+    try self.break_stack.append(done_label);
+    defer _ = self.break_stack.popOrNull();
 
     try self.text_writer.print(
         \\.L{0d}:
@@ -178,8 +184,7 @@ fn whileStatement(self: *Self, node: anytype) anyerror!Register {
     );
 
     const block_ = &self.ast.nodes[node.block];
-    const block_register = try self.generate_(block_);
-    defer self.register_pool.deallocate(block_register);
+    _ = try self.generate_(block_);
 
     try self.text_writer.print(
         \\    jmp      .L{0d}
@@ -191,7 +196,7 @@ fn whileStatement(self: *Self, node: anytype) anyerror!Register {
         }
     );
 
-    return block_register;
+    return .none;
 }
 
 fn ifStatement(self: *Self, node: anytype) anyerror!Register {
@@ -215,8 +220,7 @@ fn ifStatement(self: *Self, node: anytype) anyerror!Register {
     );
 
     const block_ = &self.ast.nodes[node.block];
-    const block_register = try self.generate_(block_);
-    defer self.register_pool.deallocate(block_register);
+    _ = try self.generate_(block_);
 
     if (has_else) {
         try self.text_writer.print(
@@ -230,8 +234,7 @@ fn ifStatement(self: *Self, node: anytype) anyerror!Register {
         );
 
         const else_ = &self.ast.nodes[node.else_block.?];
-        const else_register = try self.generate_(else_);
-        defer self.register_pool.deallocate(else_register);
+        _ = try self.generate_(else_);
     }
 
     try self.text_writer.print(
@@ -242,7 +245,7 @@ fn ifStatement(self: *Self, node: anytype) anyerror!Register {
         }
     );
 
-    return block_register;
+    return .none;
 }
 
 fn assignment(self: *Self, node: anytype) anyerror!Register {
@@ -327,7 +330,7 @@ fn assignment(self: *Self, node: anytype) anyerror!Register {
         else => unreachable, // codegen for assignment operator not implemented
     } 
 
-    return expression_register;
+    return .none;
 }
 
 fn declaration(self: *Self, node: anytype) anyerror!Register {
@@ -355,7 +358,7 @@ fn declaration(self: *Self, node: anytype) anyerror!Register {
         }
     );
 
-    return expression_register;
+    return .none;
 }
 
 fn comparison(self: *Self, node: anytype) anyerror!Register {
@@ -366,7 +369,7 @@ fn comparison(self: *Self, node: anytype) anyerror!Register {
     const left_register  = try self.generate_(left);
     const right_register = try self.generate_(right);
 
-    defer self.register_pool.deallocate(left_register);
+    defer self.register_pool.deallocate(right_register);
 
     const true_label  = self.newLabel();
     const done_label  = self.newLabel();
@@ -413,7 +416,8 @@ fn statementList(self: *Self, node: anytype) anyerror!Register {
     // We can discard results from statements
     self.register_pool.deallocate(first_register);
     self.register_pool.deallocate(follow_register);
-    return follow_register; 
+
+    return .none; 
 }
 
 fn arithmetic(self: *Self, node: anytype) anyerror!Register {
@@ -426,7 +430,7 @@ fn arithmetic(self: *Self, node: anytype) anyerror!Register {
     const left_register  = try self.generate_(left);
     const right_register = try self.generate_(right);
 
-    defer self.register_pool.deallocate(left_register);
+    defer self.register_pool.deallocate(right_register);
 
     switch (node.operator.kind) {
 
@@ -558,4 +562,18 @@ fn atomic(self: *Self, node: anytype) anyerror!Register {
     }
 
     return result;
+}
+
+fn breakStatement(self: Self) !Register {
+
+    const label = self.break_stack.getLast();
+    try self.text_writer.print(
+        \\    jmp      .L{0d}
+        \\
+        , .{
+            label,
+        }
+    );
+
+    return .none;
 }

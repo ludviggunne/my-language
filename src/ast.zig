@@ -63,6 +63,8 @@ pub const Node = union(enum) {
         right:    usize,
     },
 
+    break_statement,
+
     atomic: struct {
         symbol: usize = 0,
         literal: ?[]const u8 = null,
@@ -146,5 +148,7 @@ fn print_(source: []const u8, ast: []const Node, root: usize, indent: *usize) vo
         },
 
         .empty => std.debug.print("EMPTY\n", .{}),
+
+        .break_statment => std.debug.print("BREAK\n", .{}),
     }
 }

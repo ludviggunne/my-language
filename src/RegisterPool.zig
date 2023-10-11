@@ -4,6 +4,7 @@ const std = @import("std");
 const Self = @This();
 
 pub const Register = enum {
+    none,
     r10,
     r11,
     r12,
@@ -24,6 +25,8 @@ pub fn init() Self {
 pub fn allocate(self: *Self) !Register {
     
     for (std.enums.values(Register)) |reg| {
+
+        if (reg == .none) continue;
 
         if (!self.in_use.contains(reg)) {
             

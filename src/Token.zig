@@ -36,6 +36,7 @@ pub const Kind = enum {
     @"else",    // else
     @"let",     // let
     @"print",   // print
+    @"break",   // break
 
     err,
 };

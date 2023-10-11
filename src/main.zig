@@ -32,6 +32,8 @@ pub fn main() !void {
         return;
     };
 
+    //@import("ast.zig").print(source, &ast);
+
     // Create symbol table
     var symtab = try SymbolTable.init(alloc.allocator(), &ast, source);
     symtab.resolve() catch {

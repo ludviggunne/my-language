@@ -14,28 +14,31 @@ pub fn reportParseError(err: Parser.Error, writer: anytype, source: []const u8) 
         err.end   orelse source.len,
     );
 
-    try writer.print("Error on line {d}: ", .{ ref.line, });
+    try writer.print("Error on line {d}:\n", .{ ref.line, });
 
     switch (err.kind) {
         .expected_token => |e| {
-            try writer.print("Expected {s} --- found {s}.\n",
-                .{
+            try writer.print(
+                \\    Expected {s}
+                \\    Found {s}
+                \\
+                , .{
                     @tagName(e.expected),
                     if (e.found) |found| @tagName(found) else "end of input",
                 },
             );
         },
         .expected_token_range => |e| {
-            try writer.print("Expected one of ", .{});
+            try writer.print("    Expected one of ", .{});
             for (e.expected) |expected| {
                 try writer.print("{s}, ", .{ @tagName(expected), });
             }
-            try writer.print("--- found {s}\n", .{
+            try writer.print("\n    found {s}\n", .{
                 if (e.found) |found| @tagName(found) else "end of input",
             });
         },
         .unexpected_eoi => {
-            try writer.print("Unexpected end of input\n", .{});
+            try writer.print("    Unexpected end of input\n", .{});
         },
     }
 
@@ -53,15 +56,15 @@ pub fn reportSymbolResolutionError(err: SymbolTable.Error, writer: anytype, sour
         err.end,
     );
 
-    try writer.print("Error on line {d}: ", .{ ref.line, });
+    try writer.print("Error on line {d}:\n", .{ ref.line, });
 
     switch (err.kind) {
         .redeclaration => try writer.print(
-            "Redeclaration of symbol {s}\n",
+            "    Redeclaration of symbol {s}\n",
             .{ source[err.begin..err.end], },
         ),
         .undeclared => try writer.print(
-            "Reference to undeclared symbol {s}\n",
+            "    Reference to undeclared symbol {s}\n",
             .{ source[err.begin..err.end], },
         ),
     }
