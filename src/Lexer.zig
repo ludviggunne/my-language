@@ -111,6 +111,7 @@ pub fn next(self: *Self) ?Token {
         '-' => if (eq) .@"-=" else .@"-",
         '*' => if (eq) .@"*=" else .@"*",
         '/' => if (eq) .@"/=" else .@"/",
+        '%' => if (eq) .@"%=" else .@"%",
         '=' => if (eq) .@"==" else .@"=",
         '>' => if (eq) .@">=" else .@">",
         '<' => if (eq) .@"<=" else .@"<",

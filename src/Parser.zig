@@ -382,7 +382,8 @@ pub fn factor(self: *Self) !usize {
                 switch (peek.kind) {
 
                     .@"*",
-                    .@"/" => {
+                    .@"/",
+                    .@"%", => {
                         const operator = self.lexer.next().?;
                         const right = try self.factor();
 

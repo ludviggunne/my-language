@@ -109,8 +109,8 @@ fn generate_(self: *Self, node: *const Node) anyerror!Register {
 
         .binary => |v| switch (v.operator.kind) {
 
-            .@"<", .@"==", .@">", .@"!=" => try self.comparison(v),
-            .@"+", .@"-", .@"*", .@"/"   => try self.arithmetic(v),
+            .@"<", .@"==", .@">", .@"!="       => try self.comparison(v),
+            .@"+", .@"-", .@"*", .@"/", .@"%", => try self.arithmetic(v),
             else => unreachable, // codegen for operator not implemented
         },
 
@@ -422,8 +422,20 @@ fn arithmetic(self: *Self, node: anytype) anyerror!Register {
             \\    movq     %rax, %{1s}
             \\
             , .{
-                @tagName(right_register),
                 @tagName(left_register),
+                @tagName(right_register),
+            }
+        ),
+
+        .@"%" => try self.text_writer.print(
+            \\    xorq     %rdx, %rdx
+            \\    movq     %{0s}, %rax
+            \\    idivq    %{1s}
+            \\    movq     %rdx, %{1s}
+            \\
+            , .{
+                @tagName(left_register),
+                @tagName(right_register),
             }
         ),
 
