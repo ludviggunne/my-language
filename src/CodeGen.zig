@@ -109,8 +109,19 @@ fn generate_(self: *Self, node: *const Node) anyerror!Register {
 
         .binary => |v| switch (v.operator.kind) {
 
-            .@"<", .@"==", .@">", .@"!="       => try self.comparison(v),
-            .@"+", .@"-", .@"*", .@"/", .@"%", => try self.arithmetic(v),
+            .@"<",
+            .@"<=",
+            .@"==",
+            .@">",
+            .@">=",
+            .@"!=", => try self.comparison(v),
+
+            .@"+",
+            .@"-",
+            .@"*",
+            .@"/",
+            .@"%", => try self.arithmetic(v),
+
             else => unreachable, // codegen for operator not implemented
         },
 
@@ -270,6 +281,9 @@ fn assignment(self: *Self, node: anytype) anyerror!Register {
     const expression = &self.ast.nodes[node.expression];
     const expression_register = try self.generate_(expression);
     defer self.register_pool.deallocate(expression_register);
+
+    const scratch_register = try self.register_pool.allocate();
+    defer self.register_pool.deallocate(scratch_register);
     
     switch (node.operator.kind) {
 
@@ -279,6 +293,65 @@ fn assignment(self: *Self, node: anytype) anyerror!Register {
             , .{
                 @tagName(expression_register),
                 name,
+            }
+        ),
+
+        .@"+=" => try self.text_writer.print(
+            \\    movq     var_{0s}(%rip), %{1s}
+            \\    addq     %{2s}, %{1s}
+            \\    movq     %{1s}, var_{0s}(%rip)
+            \\
+            , .{
+                name,
+                @tagName(scratch_register),
+                @tagName(expression_register),
+            }
+        ),
+
+        .@"-=" => try self.text_writer.print(
+            \\    movq     var_{0s}(%rip), %{1s}
+            \\    subq     %{2s}, %{1s}
+            \\    movq     %{1s}, var_{0s}(%rip)
+            \\
+            , .{
+                name,
+                @tagName(scratch_register),
+                @tagName(expression_register),
+            }
+        ),
+
+        .@"*=" => try self.text_writer.print(
+            \\    movq     var_{0s}(%rip), %rax
+            \\    imulq    %{1s}
+            \\    movq     %rax, var_{0s}(%rip)
+            \\
+            , .{
+                name,
+                @tagName(expression_register),
+            }
+        ),
+
+        .@"/=" => try self.text_writer.print(
+            \\    movq     var_{0s}(%rip), %rax
+            \\    cqo
+            \\    idivq    %{1s}
+            \\    movq     %rax, var_{0s}(%rip)
+            \\
+            , .{
+                name,
+                @tagName(expression_register),
+            }
+        ),
+
+        .@"%=" => try self.text_writer.print(
+            \\    movq     var_{0s}(%rip), %rax
+            \\    cqo
+            \\    idivq    %{1s}
+            \\    movq     %rdx, var_{0s}(%rip)
+            \\
+            , .{
+                name,
+                @tagName(expression_register),
             }
         ),
 
@@ -351,7 +424,9 @@ fn comparison(self: *Self, node: anytype) anyerror!Register {
         .@"==" => "je  ",
         .@"!=" => "jne ",
         .@">"  => "jg  ",
+        .@">=" => "jge ",
         .@"<"  => "jl  ",
+        .@"<=" => "jle ",
         else   => unreachable, // codegen for comparison operator not implemented
     };
 

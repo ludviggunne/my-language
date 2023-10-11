@@ -1,9 +1,9 @@
 
-let x = 0;
+let x = 500;
 
-while x < 20 {
+while x > 10 {
 
-    print x % 3;
+    print x;
 
-    x = x + 1;
+    x /= 2;
 }
