@@ -1,7 +1,7 @@
 
 default:
 	zig run src/main.zig
-	gcc output.S -o program
+	gcc -g output.S -o program
 
 run: default
 	./program

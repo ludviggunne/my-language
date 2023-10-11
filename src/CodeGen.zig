@@ -434,26 +434,26 @@ fn arithmetic(self: *Self, node: anytype) anyerror!Register {
         ),
 
         .@"/" => try self.text_writer.print(
-            \\    xorq     %rdx, %rdx
-            \\    movq     %{0s}, %rax
-            \\    idivq    %{1s}
+            \\    movq     %{1s}, %rax
+            \\    cqo
+            \\    idivq    %{0s}
             \\    movq     %rax, %{1s}
             \\
             , .{
-                @tagName(left_register),
                 @tagName(right_register),
+                @tagName(left_register),
             }
         ),
 
         .@"%" => try self.text_writer.print(
-            \\    xorq     %rdx, %rdx
-            \\    movq     %{0s}, %rax
-            \\    idivq    %{1s}
+            \\    movq     %{1s}, %rax
+            \\    cqo
+            \\    idivq    %{0s}
             \\    movq     %rdx, %{1s}
             \\
             , .{
-                @tagName(left_register),
                 @tagName(right_register),
+                @tagName(left_register),
             }
         ),
 
