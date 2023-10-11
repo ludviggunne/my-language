@@ -332,8 +332,8 @@ fn comparison(self: *Self, node: anytype) anyerror!Register {
     const jump_instruction: []const u8 = switch (node.operator.kind) {
         .@"==" => "je ",
         .@"!=" => "jne",
-        .@">"  => "jl ", // AT&T syntax swaps operands in CMP
-        .@"<"  => "jg ",
+        .@">"  => "jg ",
+        .@"<"  => "jl ",
         else   => unreachable, // codegen for comparison operator not implemented
     };
 
@@ -347,15 +347,15 @@ fn comparison(self: *Self, node: anytype) anyerror!Register {
         \\.L{4d}:
         \\
         , .{
-            @tagName(left_register),  // 0
-            @tagName(right_register), // 1
+            @tagName(right_register), // 0
+            @tagName(left_register),  // 1
             jump_instruction,         // 2
             true_label,               // 3
             done_label,               // 4
         }
     );
 
-    return right_register;
+    return left_register;
 }
 
 fn statementList(self: *Self, node: anytype) anyerror!Register {
