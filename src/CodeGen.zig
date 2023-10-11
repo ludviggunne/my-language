@@ -135,7 +135,7 @@ fn printStatement(self: *Self, node: anytype) anyerror!Register {
 
     try self.text_writer.print(
         \\    push     %rbp
-        \\    lea      __fmt(%rip), %rdi
+        \\    leaq     __fmt(%rip), %rdi
         \\    movq     %{0s}, %rsi
         \\    movq     $0, %rax
         \\    call     printf
