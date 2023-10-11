@@ -29,7 +29,7 @@ pub fn main() !void {
             try errors.reportParseError(err, stdout, source);            
         }
 
-        return;
+        return error.CompilationFailed;
     };
 
     //@import("ast.zig").print(source, &ast);
@@ -42,7 +42,7 @@ pub fn main() !void {
             try errors.reportSymbolResolutionError(err, stdout, source);
         }
 
-        return;
+        return error.CompilationFailed;
     };
 
     // Generate assembly
