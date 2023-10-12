@@ -1,8 +1,7 @@
 
 const std = @import("std");
 
-const Ast          = @import("ast.zig").Ast;
-const Node         = @import("ast.zig").Node;
+const Ast          = @import("Ast.zig");
 const Token        = @import("Token.zig");
 const RegisterPool = @import("RegisterPool.zig");
 const Register     = RegisterPool.Register;
@@ -84,7 +83,7 @@ fn newLabel(self: *Self) usize {
     return self.label_counter;
 }
 
-fn generate_(self: *Self, node: *const Node) anyerror!Register {
+fn generate_(self: *Self, node: *const Ast.Node) anyerror!Register {
 
     const result = switch (node.*) {
 

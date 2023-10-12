@@ -3,7 +3,7 @@ const std = @import("std");
 
 const Token = @import("Token.zig");
 const Lexer = @import("Lexer.zig");
-const ast   = @import("ast.zig");
+const Ast   = @import("Ast.zig");
 
 pub const Error = struct {
 
@@ -24,14 +24,14 @@ pub const Error = struct {
 
 const Self = @This();
 
-nodes: std.ArrayList(ast.Node),
+nodes: std.ArrayList(Ast.Node),
 errors: std.ArrayList(Error),
 lexer: *Lexer,
 
 pub fn init(allocator: std.mem.Allocator, lexer: *Lexer) Self {
     
     return .{
-        .nodes = std.ArrayList(ast.Node).init(allocator),
+        .nodes = std.ArrayList(Ast.Node).init(allocator),
         .errors = std.ArrayList(Error).init(allocator),
         .lexer = lexer,
     };
@@ -43,7 +43,7 @@ pub fn deinit(self: *Self) void {
     self.errors.deinit();
 }
 
-pub fn parse(self: *Self) !ast.Ast {
+pub fn parse(self: *Self) !Ast {
 
     const result = try self.statementList(false); // not block
     return if (self.errors.items.len > 0) 
@@ -60,7 +60,7 @@ fn pushError(self: *Self, err: Error) !void {
     return error.PushError;
 }
 
-fn pushNode(self: *Self, node: ast.Node) !usize {
+fn pushNode(self: *Self, node: Ast.Node) !usize {
 
     try self.nodes.append(node);
     return self.nodes.items.len - 1;

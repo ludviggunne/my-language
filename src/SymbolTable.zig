@@ -1,6 +1,6 @@
 
 const std  = @import("std");
-const Ast  = @import("ast.zig").Ast;
+const Ast  = @import("Ast.zig");
 
 const Self = @This();
 
