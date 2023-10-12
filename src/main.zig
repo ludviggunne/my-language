@@ -14,6 +14,8 @@ pub fn main() !void {
 
     // Read file
     var alloc = std.heap.GeneralPurposeAllocator(.{}) {};
+    //defer _ = alloc.deinit();
+
     const cwd = std.fs.cwd();
     const file = try cwd.openFile("./program.l", .{});
     const source = try file.readToEndAlloc(alloc.allocator(), 1024);
@@ -23,6 +25,8 @@ pub fn main() !void {
 
     // Parse file
     var parser = Parser.init(alloc.allocator(), &lexer);
+    defer parser.deinit();
+
     var ast = parser.parse() catch {
 
         for (parser.errors.items) |err| {
@@ -36,6 +40,8 @@ pub fn main() !void {
 
     // Create symbol table
     var symtab = try SymbolTable.init(alloc.allocator(), &ast, source);
+    defer symtab.deinit();
+
     symtab.resolve() catch {
 
         for (symtab.errors.items) |err| {
@@ -47,6 +53,8 @@ pub fn main() !void {
 
     // Generate assembly
     var codegen = CodeGen.init(&ast, alloc.allocator(), &symtab);
+    defer codegen.deinit();
+
     codegen.initWriters();
     try codegen.generate();
 

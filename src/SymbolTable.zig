@@ -44,6 +44,16 @@ pub fn init(allocator: std.mem.Allocator, ast: *Ast, source: []const u8) !Self {
     return self;
 }
 
+pub fn deinit(self: *Self) void {
+
+    self.symbols.deinit();
+    for (self.maps.items) |*map| {
+        map.deinit();
+    }
+    self.maps.deinit();
+    self.errors.deinit();
+}
+
 pub fn resolve(self: *Self) !void {
     
     try self.resolve_(self.ast.root);

@@ -44,6 +44,14 @@ pub fn init(ast: *const Ast, allocator: std.mem.Allocator, symbol_table: *Symbol
     };
 }
 
+pub fn deinit(self: *Self) void {
+
+    self.errors.deinit();
+    self.text_section.deinit();
+    self.data_section.deinit();
+    self.break_stack.deinit();
+}
+
 pub fn initWriters(self: *Self) void {
 
     self.text_writer = self.text_section.writer();
