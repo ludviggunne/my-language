@@ -57,6 +57,9 @@ pub fn deinit(self: *Self) void {
 pub fn resolve(self: *Self) !void {
     
     try self.resolve_(self.ast.root);
+    if (self.errors.items.len > 0) {
+        return error.ResolutionError;
+    }
 }
 
 fn currentScope(self: *Self) Scope {
@@ -142,7 +145,7 @@ fn reference(self: *Self, begin: usize, end: usize) !usize {
     unreachable;
 }
 
-fn resolve_(self: *Self, index: usize) !void {
+fn resolve_(self: *Self, index: usize) anyerror!void {
 
     var node = &self.ast.nodes[index];
 
@@ -151,7 +154,11 @@ fn resolve_(self: *Self, index: usize) !void {
         .empty, .break_statement => {},
         
         .statement_list => |v| {
-            try self.resolve_(v.first); 
+            self.resolve_(v.first) catch |err| switch (err) {
+                // Continue to next statement if error is trivial
+                error.ResolutionError => {},
+                else => return err,
+            };
             try self.resolve_(v.follow); 
         },
 

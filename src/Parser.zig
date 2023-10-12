@@ -205,7 +205,8 @@ fn statement(self: *Self) !usize {
     );
     
     var expect_semi = true;
-    const stmt = switch (first.kind) {
+
+    const stmt_maybe_error = switch (first.kind) {
 
         .@"let"     => self.declaration(),
 
@@ -235,18 +236,21 @@ fn statement(self: *Self) !usize {
 
         else => unreachable,
 
-    } catch {
+    };
 
-        // If we encounter an error during parsing of a single statement
-        //  we skip to the next statement
+    const stmt = stmt_maybe_error catch {
         self.sync();
         return try self.statement();
     };
 
     // Expect ; only from certain statements
     if (expect_semi) {
-        _ = try self.expect(.@";");
+        _ = self.expect(.@";") catch {
+            self.sync();
+            return try self.statement();
+        };
     }
+
     return stmt;
 }
 
