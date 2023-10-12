@@ -139,6 +139,7 @@ fn printStatement(self: *Self, node: anytype) anyerror!Register {
     defer self.register_pool.deallocate(argument_register);
 
     try self.text_writer.print(
+        \\             // print
         \\    push     %rbp
         \\    leaq     __fmt(%rip), %rdi
         \\    movq     %{0s}, %rsi
@@ -169,6 +170,7 @@ fn whileStatement(self: *Self, node: anytype) anyerror!Register {
     defer _ = self.break_stack.popOrNull();
 
     try self.text_writer.print(
+        \\             // while
         \\.L{0d}:
         \\
         , .{
@@ -183,6 +185,7 @@ fn whileStatement(self: *Self, node: anytype) anyerror!Register {
     try self.text_writer.print(
         \\    cmpq     $0, %{0s}
         \\    je       .L{1d}
+        \\             // begin
         \\
         , .{
             @tagName(condition_register),
@@ -196,6 +199,7 @@ fn whileStatement(self: *Self, node: anytype) anyerror!Register {
     try self.text_writer.print(
         \\    jmp      .L{0d}
         \\.L{1d}:
+        \\             // end
         \\
         , .{
             begin_label,
@@ -217,8 +221,10 @@ fn ifStatement(self: *Self, node: anytype) anyerror!Register {
     const else_label = if (has_else) self.newLabel() else undefined;
 
     try self.text_writer.print(
+        \\             // if
         \\    cmpq     $0, %{0s}
         \\    je       .L{1d}
+        \\             // begin
         \\
         , .{
             @tagName(condition_register),
@@ -232,6 +238,7 @@ fn ifStatement(self: *Self, node: anytype) anyerror!Register {
     if (has_else) {
         try self.text_writer.print(
             \\    jmp      .L{0d}
+            \\             // else
             \\.L{1d}:
             \\
             , .{
@@ -246,6 +253,7 @@ fn ifStatement(self: *Self, node: anytype) anyerror!Register {
 
     try self.text_writer.print(
         \\.L{0d}:
+        \\             // end
         \\
         , .{
             done_label,
@@ -263,6 +271,14 @@ fn assignment(self: *Self, node: anytype) anyerror!Register {
 
     const scratch_register = try self.register_pool.allocate();
     defer self.register_pool.deallocate(scratch_register);
+
+    try self.text_writer.print(
+        \\             // assign {s}
+        \\
+        , .{
+            @tagName(node.operator.kind),
+        }
+    );
     
     switch (node.operator.kind) {
 
@@ -357,6 +373,7 @@ fn declaration(self: *Self, node: anytype) anyerror!Register {
     defer self.register_pool.deallocate(expression_register);
 
     try self.text_writer.print(
+        \\             // declare
         \\    movq     %{0s}, var_{1d}(%rip)
         \\
         , .{
@@ -392,6 +409,7 @@ fn comparison(self: *Self, node: anytype) anyerror!Register {
     };
 
     try self.text_writer.print(
+        \\             // compare
         \\    cmpq     %{0s}, %{1s}
         \\    {2s}     .L{3d}
         \\    movq     $0, %{1s}
@@ -442,6 +460,7 @@ fn arithmetic(self: *Self, node: anytype) anyerror!Register {
     switch (node.operator.kind) {
 
         .@"+" => try self.text_writer.print(
+            \\             // add
             \\    addq     %{0s}, %{1s}
             \\
             , .{
@@ -451,6 +470,7 @@ fn arithmetic(self: *Self, node: anytype) anyerror!Register {
         ),
 
         .@"-" => try self.text_writer.print(
+            \\             // subtract
             \\    subq     %{0s}, %{1s}
             \\
             , .{
@@ -460,6 +480,7 @@ fn arithmetic(self: *Self, node: anytype) anyerror!Register {
         ),
 
         .@"*" => try self.text_writer.print(
+            \\             // multiply
             \\    movq     %{0s}, %rax
             \\    imulq    %{1s}
             \\    movq     %rax, %{1s}
@@ -471,6 +492,7 @@ fn arithmetic(self: *Self, node: anytype) anyerror!Register {
         ),
 
         .@"/" => try self.text_writer.print(
+            \\             // divide
             \\    movq     %{1s}, %rax
             \\    cqo
             \\    idivq    %{0s}
@@ -483,6 +505,7 @@ fn arithmetic(self: *Self, node: anytype) anyerror!Register {
         ),
 
         .@"%" => try self.text_writer.print(
+            \\             // modulo
             \\    movq     %{1s}, %rax
             \\    cqo
             \\    idivq    %{0s}
@@ -511,6 +534,7 @@ fn unary(self: *Self, node: anytype) anyerror!Register {
     switch (node.operator.kind) {
 
         .@"!" => try self.text_writer.print(
+            \\             // not
             \\    movq     $1, %{0s}
             \\    xorq     %{0s}, %{1s}
             \\    
@@ -521,7 +545,8 @@ fn unary(self: *Self, node: anytype) anyerror!Register {
         ),
 
         .@"-" => try self.text_writer.print(
-            \\    negq %{0s}
+            \\             // negate
+            \\    negq     %{0s}
             \\
             , .{
                 @tagName(operand_register),
@@ -544,6 +569,7 @@ fn atomic(self: *Self, node: anytype) anyerror!Register {
         .identifier => {
             
             try self.text_writer.print(
+                \\             // reference
                 \\    movq     var_{0d}(%rip), %{1s}
                 \\
                 , .{
@@ -556,6 +582,7 @@ fn atomic(self: *Self, node: anytype) anyerror!Register {
         .literal => {
             
             try self.text_writer.print(
+                \\             // literal
                 \\    movq     ${0s}, %{1s}
                 \\
                 , .{
@@ -575,6 +602,7 @@ fn breakStatement(self: Self) !Register {
 
     const label = self.break_stack.getLast();
     try self.text_writer.print(
+        \\             // break
         \\    jmp      .L{0d}
         \\
         , .{
