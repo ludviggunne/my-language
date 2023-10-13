@@ -69,8 +69,7 @@ pub fn next(self: *Self) ?Token {
                 self.back();
                 const loc = self.source[begin..self.index];
 
-                const kind = if (keywords.get(loc)) |kind|
-                    kind else .identifier;
+                const kind = keywords.get(loc) orelse .identifier;
 
                 return .{
                     .kind = kind,
