@@ -1,0 +1,47 @@
+
+<statement_list> ::= 
+    <statement> <statement_list> | 
+    <statement>;
+
+<statement> ::= 
+    <declaration>     |
+    <assignment>      |
+    <block_statement> |
+    <if_statement>    |
+    <while_statement> |
+    <print_statement> |
+    <break_statement>;
+
+<declaration> ::= "let" "identifier" "=" <expression> ";";
+
+<assignment> ::= "identifier" ("=" | "+=" | "*=" | "/=" | "%=") <expression> ";";
+
+<expression> ::=
+    <sum> ("<" | "<=" | "==" | "!=" | ">=" | ">") <expression> |
+    <sum>;
+
+<sum> ::=
+    <product> ("+" | "-") <sum> |
+    <product>;
+
+<product> ::=
+    <factor> ("*" | "/" | "%") <product> |
+    <factor>;
+
+<factor> ::=
+    "identifier"         |
+    "literal"            |
+    ("-" | "!") <factor> |
+    "(" <expression> ")";
+
+<if_statement> ::= 
+    "if" <expression> <block_statement> |
+    "if" <expression> <block_statement> "else" <block_statement>;
+
+<while_statement> ::= "while" <expression> <block_statement>;
+
+<block_statement> ::= "{" <statement_list> "}";
+
+<print_statement> ::= "print" <expression> ";";
+
+<break_statement> ::= "break" ";";
