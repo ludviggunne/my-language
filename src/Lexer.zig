@@ -34,15 +34,28 @@ pub fn next(self: *Self) ?Token {
         return self.peeked;
     }
 
-    // Skip whitespace
     var current: u8 = undefined;
     var begin: usize = undefined;
 
+    // Skip whitespace
     while (self.take()) |ch| {
         if (!whitespace(ch)) {
-            current = ch;
-            begin = self.index - 1;
-            break;
+
+            // Comments
+            if (ch == '#') {
+
+                while (self.take()) |ch_| {
+                    if (ch_ == '\n') {
+                        break;
+                    }
+                } else  return null;
+
+            } else {
+
+                current = ch;
+                begin = self.index - 1;
+                break;
+            }
         }
     } else return null;
 
