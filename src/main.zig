@@ -35,6 +35,14 @@ pub fn main() !u8 {
             try errors.reportParseError(err, stdout, source);            
         }
 
+        try stdout.print(
+            \\Abort compilation due to {d} errors
+            \\
+            , .{
+                parser.errors.items.len,
+            }
+        );
+
         return 1;
     };
 
@@ -49,6 +57,14 @@ pub fn main() !u8 {
         for (symtab.errors.items) |err| {
             try errors.reportSymbolResolutionError(err, stdout, source);
         }
+
+        try stdout.print(
+            \\Abort compilation due to {d} errors
+            \\
+            , .{
+                symtab.errors.items.len,
+            }
+        );
 
         return 1;
     };
