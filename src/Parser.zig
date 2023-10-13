@@ -376,11 +376,34 @@ pub fn factor(self: *Self) !usize {
 
     switch (left.kind) {
 
-        // <factor> ::= "(" <expression> ")"
+        // <factor> ::= "(" <expression> ")" ("*" | "/")
         .@"(" => {
             const inner = try self.expression();
             _ = try self.expect(.@")");
-            return inner;
+
+            if (self.lexer.peek()) |peek| {
+
+                switch (peek.kind) {
+
+                    .@"*",
+                    .@"/",
+                    .@"%", => {
+                        const operator = self.lexer.next().?;
+                        const right = try self.factor();
+
+                        return self.pushNode(.{
+                            .binary = .{
+                                .left = inner,
+                                .operator = operator,
+                                .right = right,
+                            },
+                        });
+                    },
+
+                    // No additional factors
+                    else => return inner,
+                }
+            } else return inner;
         },
         
         // <factor> ::= (<identifier> | <literal>) ("*" | "/")
