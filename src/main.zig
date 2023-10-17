@@ -1,23 +1,21 @@
 
 const std = @import("std");
 
-const Lexer       = @import("Lexer.zig");
-const Ast         = @import("Ast.zig");
-const Parser      = @import("Parser.zig");
-const TypeChecker = @import("TypeChecker.zig");
+const Lexer          = @import("Lexer.zig");
+const Ast            = @import("Ast.zig");
+const Parser         = @import("Parser.zig");
+const TypeChecker    = @import("TypeChecker.zig");
+const ConstantFolder = @import("ConstantFolder.zig");
 
 pub fn main() !u8 {
 
     const source =
-        \\ fn add(a, b) = {
-        \\     let c = a + b;
-        \\     c += 1;
-        \\     if (b == a) == (c < c) {
-        \\         c = 0;
+        \\ fn main() = {
+        \\     if 3 - 2 == 2 {
+        \\         let a = 10 + (2 * 3);
         \\     } else {
-        \\         c -= 2;
+        \\         let a = 9 - 2;
         \\     }
-        \\     return c;
         \\ }
     ;
 
@@ -60,6 +58,20 @@ pub fn main() !u8 {
 
         return 1;
     };
+
+    var folder = ConstantFolder.init(&ast, allocator);
+    defer folder.deinit();
+
+    folder.fold() catch {
+
+        for (folder.errors.items) |err| {
+            try err.print(source, stdout);
+        }
+
+        return 1;
+    };
+    
+    try ast.dump(stdout);
 
     return 0;
 }

@@ -233,6 +233,7 @@ fn function(self: *Self) anyerror!usize {
     var params: ?usize = undefined;
     if (try self.lexer.peek()) |peek| {
         if (peek.kind == .@")") {
+            _ = try self.lexer.take(); // )
             params = null;
         } else {
             params = try self.parameterList();

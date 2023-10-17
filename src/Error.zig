@@ -14,6 +14,7 @@ stage: enum {
     lexing,
     parsing,
     typechecking,
+    constant_folding,
     resolve,
     codegen,
 },
@@ -43,6 +44,8 @@ kind: union(enum) {
     control_flow_mismatch,
     return_mismatch,
     argument_mismatch,
+    // Constant foldin
+    division_by_zero,
     // Symbol resolution
     redeclaration,
     undeclared_ref,
@@ -108,6 +111,11 @@ pub fn print(self: *const Self, source: []const u8, writer: anytype) !void {
     
         .argument_mismatch => {
             try writer.print("Type mismatch: only integer arguments are allowed\n", .{});
+            try printReference(self.where.?, source, writer);
+        },
+
+        .division_by_zero => {
+            try writer.print("Division by zero\n", .{});
             try printReference(self.where.?, source, writer);
         },
 

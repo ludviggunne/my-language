@@ -6,7 +6,7 @@ const Token = @import("Token.zig");
 root: usize,
 nodes: std.ArrayList(Node),
 
-const Node = union(enum) {
+pub const Node = union(enum) {
 
     empty,
     break_statement,
@@ -103,8 +103,8 @@ const Node = union(enum) {
     },
 
     constant: struct {
-        value: i32 = 0,
-        token: Token,
+        value: i64 = 0,
+        token: ?Token = null, // may not exist after constant folding
     },
 };
 
@@ -257,7 +257,12 @@ fn dumpNode(self: *Self, id: usize, writer: anytype, i: usize) !void {
         },
 
         .constant => |v| {
-            try writer.print("constant ({s})\n", .{ v.token.where, });
+            // Pick field depending on wether we've done constant folding or not
+            if (v.token) |token| {
+                try writer.print("constant ({s})\n", .{ token.where, });
+            } else {
+                try writer.print("constant ({d})\n", .{ v.value, });
+            }
         },
     }
 }
