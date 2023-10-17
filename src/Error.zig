@@ -2,6 +2,7 @@
 const std = @import("std");
 const Self = @This();
 const Token = @import("Token.zig");
+const Type = @import("TypeChecker.zig").Type;
 
 pub const Reference = struct {
     line:        []const u8,
@@ -12,26 +13,43 @@ pub const Reference = struct {
 stage: enum {
     lexing,
     parsing,
+    typechecking,
     resolve,
     codegen,
 },
 where: ?[]const u8 = null,
 kind: union(enum) {
+    // Lexing
     unexpected_character: []const u8,
     unexpected_token: struct {
         expected: Token.Kind,
         found:    Token.Kind,
     },
+    // Parsing
     unexpected_token_oneof: struct {
         expected: []const Token.Kind,
         found:    Token.Kind,
     },
     unexpected_eoi,
+    // Type checking
+    binary_mismatch: struct {
+        left: Type,
+        right: Type,
+    },
+    operator_mismatch: struct {
+        expected: Type,
+        found:    Type,
+    },
+    control_flow_mismatch,
+    return_mismatch,
+    argument_mismatch,
+    // Symbol resolution
     redeclaration,
     undeclared_ref,
+
 },
 
-pub fn print(self: *Self, source: []const u8, writer: anytype) !void {
+pub fn print(self: *const Self, source: []const u8, writer: anytype) !void {
 
     try writer.print("Error during {s}: ", .{ @tagName(self.stage), });
 
@@ -53,6 +71,43 @@ pub fn print(self: *Self, source: []const u8, writer: anytype) !void {
                 try writer.print("{s}, ", .{ @tagName(expected), });
             }
             try writer.print("\n", .{});
+            try printReference(self.where.?, source, writer);
+        },
+
+        .binary_mismatch => |v| {
+            try writer.print(
+                "Type mismatch for binary operator: {s} =/= {s}\n",
+                .{
+                    @tagName(v.left),
+                    @tagName(v.right),
+                }
+            );
+            try printReference(self.where.?, source, writer);
+        },
+
+        .operator_mismatch => |v| {
+            try writer.print(
+                "Type mismatch: can't use operator {s} with type {s}\n",
+                .{
+                    self.where.?,
+                    @tagName(v.found),
+                },
+            );
+            try printReference(self.where.?, source, writer);
+        },
+
+        .control_flow_mismatch => {
+            try writer.print("Type mismatch: condition for control block must be boolean\n", .{});
+            try printReference(self.where.?, source, writer);
+        },
+        
+        .return_mismatch => {
+            try writer.print("Type mismatch: non-integer in return statement expression\n", .{});
+            try printReference(self.where.?, source, writer);
+        },
+    
+        .argument_mismatch => {
+            try writer.print("Type mismatch: only integer arguments are allowed\n", .{});
             try printReference(self.where.?, source, writer);
         },
 

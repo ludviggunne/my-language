@@ -398,7 +398,7 @@ fn assignment(self: *Self) anyerror!usize {
 
 fn ifStatement(self: *Self) anyerror!usize {
 
-    _ = try self.expect(.take, .@"if");
+    const keyword = try self.expect(.take, .@"if");
     const condition = try self.expression();
     const if_block = try self.block();
     const else_block = if (try self.matchOrNull(.take, .@"else")) |_|
@@ -406,6 +406,7 @@ fn ifStatement(self: *Self) anyerror!usize {
 
     return self.ast.push(.{
         .if_statement = .{
+            .keyword = keyword,
             .condition = condition,
             .block = if_block,
             .else_block = else_block,
@@ -415,12 +416,13 @@ fn ifStatement(self: *Self) anyerror!usize {
 
 fn whileStatement(self: *Self) anyerror!usize {
 
-    _ = try self.expect(.take, .@"while");
+    const keyword = try self.expect(.take, .@"while");
     const condition = try self.expression();
     const while_block = try self.block();
 
     return self.ast.push(.{
         .while_statement = .{
+            .keyword = keyword,
             .condition = condition,
             .block = while_block,
         },
@@ -567,6 +569,7 @@ fn argumentList(self: *Self) anyerror!usize {
 
     return self.ast.push(.{
         .argument_list = .{
+            .delimiter = delimiter,
             .expr = expr,
             .next = next,
         },
@@ -575,12 +578,13 @@ fn argumentList(self: *Self) anyerror!usize {
 
 fn returnStatement(self: *Self) anyerror!usize {
 
-    _ = try self.expect(.take, .@"return");
+    const keyword = try self.expect(.take, .@"return");
     const expr = try self.expression();
     _ = try self.expect(.take, .@";");
 
     return self.ast.push(.{
         .return_statement = .{
+            .keyword = keyword,
             .expr = expr,
         },
     });

@@ -61,6 +61,7 @@ const Node = union(enum) {
     },
 
     argument_list: struct {
+        delimiter: Token,
         expr: usize,
         next: ?usize,
     },
@@ -75,18 +76,21 @@ const Node = union(enum) {
     },
 
     if_statement: struct {
+        keyword:    Token,
         condition:  usize,
         block:      usize,
         else_block: ?usize,
     },
 
     while_statement: struct {
+        keyword:   Token,
         condition: usize,
         block:     usize,
     },
 
     return_statement: struct {
-        expr: ?usize,
+        keyword: Token,
+        expr:    ?usize,
     },
 
     print_statement: struct {
