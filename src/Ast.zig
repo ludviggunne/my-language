@@ -128,6 +128,7 @@ pub fn push(self: *Self, node: Node) !usize {
 
 pub fn dump(self: *Self, writer: anytype) !void{
 
+    try writer.print("---------- AST Dump ----------\n", .{});
     try self.dumpNode(self.root, writer, 0);
 }
 

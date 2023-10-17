@@ -188,7 +188,17 @@ fn foldNode(self: *Self, id: usize) !void {
                             // TODO: Look in to this
                             break :div @divTrunc(left, right);
                         },
-                        .@"%" => @mod(left, right),
+                        .@"%" => mod: {
+                            if (right == 0) {
+                                try self.pushError(.{
+                                    .stage = .constant_folding,
+                                    .where = v.operator.where,
+                                    .kind = .division_by_zero,
+                                });
+                                return;
+                            }
+                            break :mod @mod(left, right);
+                        },
                         else => comparison: {
                             const as_bool = switch (v.operator.kind) {
                                 .@"<"  => left <  right,

@@ -39,7 +39,8 @@ pub fn deinit(self: *Self) void {
 }
 
 pub fn dump(self: *Self, writer: anytype) !void {
-
+    
+    try writer.print("---------- Lexer dump ----------\n", .{});
     while (try self.take()) |token| {
         try writer.print(
             "{0s: <16}{1s}\n",

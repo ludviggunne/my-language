@@ -10,7 +10,7 @@ const SymbolTable    = @import("SymbolTable.zig");
 
 pub fn main() !u8 {
 
-    const dump = false;
+    const dump = true;
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}) {};
     var allocator = gpa.allocator();

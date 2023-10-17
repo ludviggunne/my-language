@@ -346,6 +346,7 @@ fn resolveNode(self: *Self, id: usize) !void {
 
 pub fn dump(self: *Self, writer: anytype) !void {
 
+    try writer.print("---------- Symbol Table Dump ----------\n", .{});
     for (self.symbols.items, 0..) |symbol, i| {
         try writer.print("Symbol {s} ({d}): ", .{ symbol.name, i, });
         switch (symbol.kind) {
