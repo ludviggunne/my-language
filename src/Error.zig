@@ -15,7 +15,7 @@ stage: enum {
     parsing,
     typechecking,
     constant_folding,
-    resolve,
+    symbol_resolution,
     codegen,
 },
 where: ?[]const u8 = null,
@@ -47,9 +47,12 @@ kind: union(enum) {
     // Constant foldin
     division_by_zero,
     // Symbol resolution
-    redeclaration,
+    redeclaration: []const u8,
     undeclared_ref,
-
+    param_count_mismatch: struct {
+        expected: usize,
+        found:    usize,
+    },
 },
 
 pub fn print(self: *const Self, source: []const u8, writer: anytype) !void {
@@ -116,6 +119,26 @@ pub fn print(self: *const Self, source: []const u8, writer: anytype) !void {
 
         .division_by_zero => {
             try writer.print("Division by zero\n", .{});
+            try printReference(self.where.?, source, writer);
+        },
+
+        .redeclaration => |where| {
+            try writer.print("Redeclaration of symbol {s}\n", .{ self.where.?, });
+            try printReference(self.where.?, source, writer);
+            try writer.print("Declared here:\n", .{});
+            try printReference(where, source, writer);
+        },
+
+        .undeclared_ref => {
+            try writer.print("Reference to undeclared symbol {s}\n", .{ self.where.?, });
+            try printReference(self.where.?, source, writer);
+        },
+
+        .param_count_mismatch => |v| {
+            try writer.print(
+                "Expected {d} argument(s), found {d}\n",
+                .{ v.expected, v.found, },
+            );
             try printReference(self.where.?, source, writer);
         },
 

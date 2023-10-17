@@ -289,7 +289,8 @@ fn checkNode(self: *Self, id: usize) !Type {
             if (v.args) |args| {
                 _ = try self.checkNode(args);
             }
-            return .none;
+            // functions always return integers
+            return .integer;
         },
 
         .argument_list => |v| {

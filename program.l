@@ -1,34 +1,17 @@
 
-let number = 2;
+fn fib(n) = {
 
-# This is a comment
-# This is another comment
-
-while number <= 100000 {
-    
-    let y = -1;
-    let prime = 1;
-    let divisor = 3;
-
-    if number % 2 == 0 {
-        prime = 0;
+    if n < 2 {
+        return n;
     } else {
-        
-        while divisor < number / 2 {
-            
-            if number % divisor == 0 {
-                
-                prime = 0;
-                break;
-            }
-
-            divisor += 2;
-        }
+        return fib(n-1) + fib(n-2);
     }
+}
 
-    if prime {
-        print number;
+fn main() = {
+
+    let x = 10;
+    while x > 0 {
+        print fib(x);
     }
-
-    number += 1;
 }
