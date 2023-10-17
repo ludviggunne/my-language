@@ -1,40 +1,77 @@
 
 const std = @import("std");
-
 const Self = @This();
 const Token = @import("Token.zig");
 
 root: usize,
-nodes: []Node,
+nodes: std.ArrayList(Node),
 
-pub const Node = union(enum) {
-
-    statement_list: struct {
-        first: usize,
-        follow: usize,
-    },
+const Node = union(enum) {
 
     empty,
+    break_statement,
+    continue_statement,
+
+    toplevel_list: struct {
+        decl: usize,
+        next: ?usize,
+    },
+
+    function: struct {
+        symbol: usize = undefined,
+        name:   Token,
+        params: ?usize, // may be empty
+        body:   usize,
+    },
+
+    parameter_list: struct {
+        symbol: usize = undefined,
+        name:   Token,
+        next:   ?usize,
+    },
+    
+    declaration: struct {
+        symbol: usize = undefined,
+        name:   Token,
+        expr:   usize,
+    }, 
+
+    assignment: struct {
+        symbol:   usize = undefined,
+        name:     Token,
+        operator: Token,
+        expr:     usize,
+    },
+
+    binary: struct {
+        left:     usize,
+        right:    usize,
+        operator: Token,
+    },
+
+    unary: struct {
+        operator: Token,
+        operand:  usize,
+    },
+    
+    call: struct {
+        symbol: usize = undefined,
+        name: Token,
+        args: ?usize,
+    },
+
+    argument_list: struct {
+        expr: usize,
+        next: ?usize,
+    },
 
     block: struct {
         content: usize,
     },
 
-    declaration: struct {
-        symbol:     usize = 0,
-        identifier: Token,
-        expression: usize,
-    },
-
-    assignment: struct {
-        symbol:     usize = 0,
-        identifier: Token,
-        operator:   Token,
-        expression: usize,
-    },
-
-    print_statement: struct {
-        argument: usize,
+    statement_list: struct {
+        statement: usize,
+        next:      ?usize,
     },
 
     if_statement: struct {
@@ -47,104 +84,176 @@ pub const Node = union(enum) {
         condition: usize,
         block:     usize,
     },
-    
-    unary: struct {
-        operator: Token,
-        operand:  usize,
+
+    return_statement: struct {
+        expr: ?usize,
     },
 
-    binary: struct {
-        left:     usize,
-        operator: Token,
-        right:    usize,
+    print_statement: struct {
+        expr: usize,
     },
 
-    break_statement,
+    variable: struct {
+        symbol: usize = undefined,
+        name:   Token,
+    },
 
-    atomic: struct {
-        symbol: usize = 0,
-        literal: ?[]const u8 = null,
+    constant: struct {
+        value: i32 = 0,
         token: Token,
     },
 };
 
-pub fn print(self: *Self, source: []const u8) void {
-    
-    var indent: usize = 0;    
-    self.print_(source, self.root, &indent);
+pub fn init(allocator: std.mem.Allocator) Self {
+
+    return .{
+        .root = 0,
+        .nodes = std.ArrayList(Node).init(allocator),
+    };
 }
 
-fn print_(self: *Self, source: []const u8, root: usize, indent: *usize) void {
-    
-    indent.* += 1;
-    defer indent.* -= 1;
+pub fn deinit(self: *Self) void {
+    self.nodes.deinit();
+}
 
-    for (0..indent.*) |_| std.debug.print("    ", .{});
+pub fn push(self: *Self, node: Node) !usize {
 
-    switch (self.nodes[root]) {
+    try self.nodes.append(node);
+    return self.nodes.items.len - 1;
+}
 
-        .atomic => |a| std.debug.print(
-            "ATOMIC: {s} -> {s}\n",
-            .{
-                @tagName(a.token.kind),
-                source[a.token.begin..a.token.end],
+pub fn dump(self: *Self, writer: anytype) !void{
+
+    try self.dumpNode(self.root, writer, 0);
+}
+
+fn dumpNode(self: *Self, id: usize, writer: anytype, i: usize) !void {
+
+    if (i > 0) {
+        for (0..i - 1) |_| {
+            try writer.print("|   ", .{});
+        }
+        try writer.print("*---", .{});
+    }
+
+    const node = &self.nodes.items[id];
+    switch (node.*) {
+
+        .empty => try writer.print("empty\n", .{}),
+
+        .toplevel_list => |v| {
+            try writer.print("toplevel-list\n", .{});
+            try self.dumpNode(v.decl, writer, i + 1);
+            if (v.next) |next| {
+                try self.dumpNode(next, writer, i + 1);
             }
-        ),
-
-        .block => |b| {
-            std.debug.print("BLOCK:\n", .{});
-            self.print_(source, b.content, indent);
         },
 
-        .if_statement => |i| {
-            std.debug.print("IF STATEMENT:\n", .{});
-            self.print_(source, i.condition, indent);
-            self.print_(source, i.block, indent);
+        .function => |v| {
+            try writer.print("function \"{s}\"\n", .{ v.name.where, });
+            if (v.params) |params| {
+                try self.dumpNode(params, writer, i + 1);
+            }
+            try self.dumpNode(v.body, writer, i + 1);
         },
 
-        .while_statement => |w| {
-            std.debug.print("WHILE STATEMENT:\n", .{});
-            self.print_(source, w.condition, indent);
-            self.print_(source, w.block, indent);
+        .parameter_list => |v| {
+            try writer.print("param \"{s}\"\n", .{ v.name.where, });
+            if (v.next) |next| {
+                try self.dumpNode(next, writer, i + 1);
+            }
         },
 
-        .statement_list => |l| {
-            std.debug.print("STATEMENT LIST:\n", .{});
-            self.print_(source, l.first, indent);
-            self.print_(source, l.follow, indent);
+        .block => |v| {
+            try writer.print("block\n", .{});
+            try self.dumpNode(v.content, writer, i + 1);
         },
 
-        .declaration => |d| {
-            std.debug.print("DECLARATION: {s}\n", .{ source[d.identifier.begin..d.identifier.end] });
-            self.print_(source, d.expression, indent);
+        .statement_list => |v| {
+            try writer.print("statement-list\n", .{});
+            try self.dumpNode(v.statement, writer, i + 1);
+            if (v.next) |next| {
+                try self.dumpNode(next, writer, i + 1);
+            }
         },
 
-        .binary => |b| {
-            std.debug.print("BINARY: {s}\n", .{ @tagName(b.operator.kind) });
-            self.print_(source, b.left, indent);
-            self.print_(source, b.right, indent);
+        .declaration => |v| {
+            try writer.print("declaration \"{s}\"\n", .{ v.name.where, });
+            try self.dumpNode(v.expr, writer, i + 1);
         },
 
-        .assignment => |a| {
-            std.debug.print("ASSIGNMENT: {s} {s}\n", .{
-                source[a.identifier.begin..a.identifier.end],
-                @tagName(a.operator.kind)
-            });
-            self.print_(source, a.expression, indent);
+        .assignment => |v| {
+            try writer.print(
+                "assignment \"{s}\" ({s})\n",
+                .{ v.name.where, @tagName(v.operator.kind), }
+            );
+            try self.dumpNode(v.expr, writer, i + 1);
         },
 
-        .unary => |u| {
-            std.debug.print("UNARY: {s}\n", .{ @tagName(u.operator.kind), });
-            self.print_(source, u.operand, indent);
+        .binary => |v| {
+            try writer.print("binary ({s})\n", .{ @tagName(v.operator.kind), });
+            try self.dumpNode(v.left, writer, i + 1);
+            try self.dumpNode(v.right, writer, i + 1);
         },
 
-        .print_statement => |p| {
-            std.debug.print("PRINT:\n", .{});
-            self.print_(source, p.argument, indent);
+        .unary => |v| {
+            try writer.print("unary ({s})\n", .{ @tagName(v.operator.kind), });
+            try self.dumpNode(v.operand, writer, i + 1);
         },
 
-        .empty => std.debug.print("EMPTY\n", .{}),
+        .call => |v| {
+            try writer.print("call \"{s}\"\n", .{ v.name.where, });
+            if (v.args) |args| {
+                try self.dumpNode(args, writer, i + 1);
+            }
+        },
 
-        .break_statment => std.debug.print("BREAK\n", .{}),
+        .argument_list => |v| {
+            try writer.print("arg\n", .{});
+            try self.dumpNode(v.expr, writer, i + 1);
+            if (v.next) |next| {
+                try self.dumpNode(next, writer, i + 1);
+            }
+        },
+
+        .break_statement => try writer.print("break\n", .{}),
+
+        .continue_statement => try writer.print("continue\n", .{}),
+
+        .return_statement => |v| {
+            try writer.print("return\n", .{});
+            if (v.expr) |expr| {
+                try self.dumpNode(expr, writer, i + 1);
+            }
+        }, 
+
+        .print_statement => |v| {
+            try writer.print("print\n", .{});
+            try self.dumpNode(v.expr, writer, i + 1);
+        }, 
+
+        .if_statement => |v| {
+            const str = if (v.else_block) |_| "if-else\n" else "if\n";
+            try writer.print("{s}", .{ str, });
+            try self.dumpNode(v.condition, writer, i + 1);
+            try self.dumpNode(v.block, writer, i + 1);
+            if (v.else_block) |else_block| {
+                try self.dumpNode(else_block, writer, i + 1);
+            }
+        },
+
+        .while_statement => |v| {
+            try writer.print("while\n", .{});
+            try self.dumpNode(v.condition, writer, i + 1);
+            try self.dumpNode(v.block, writer, i + 1);
+        },
+
+        .variable => |v| {
+            try writer.print("variable \"{s}\"\n", .{ v.name.where, });
+        },
+
+        .constant => |v| {
+            try writer.print("constant ({s})\n", .{ v.token.where, });
+        },
     }
 }

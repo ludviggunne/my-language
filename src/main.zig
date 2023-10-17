@@ -1,85 +1,52 @@
 
-const std         = @import("std");
-const Lexer       = @import("Lexer.zig");
-const Parser      = @import("Parser.zig");
-const SourceRef   = @import("SourceRef.zig");
-const errors      = @import("errors.zig");
-const CodeGen     = @import("CodeGen.zig");
-const SymbolTable = @import("SymbolTable.zig");
+const std = @import("std");
+
+const Lexer  = @import("Lexer.zig");
+const Ast    = @import("Ast.zig");
+const Parser = @import("Parser.zig");
 
 pub fn main() !u8 {
 
-    const stdout = std.io.getStdOut().writer();
+    const source =
+        \\ fn add(a, b) = {
+        \\     let c = a + b;
+        \\     c += 1;
+        \\     if c > b {
+        \\         c = 0;
+        \\     } else {
+        \\         c -= 2;
+        \\     }
+        \\     return c;
+        \\ }
+    ;
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}) {};
+    var allocator = gpa.allocator();
     defer _ = gpa.deinit();
-    var alloc = gpa.allocator();
 
-    // Read file
-    const cwd = std.fs.cwd();
-    const file = try cwd.openFile("./program.l", .{});
-    const source = try file.readToEndAlloc(alloc, 1024);
-    defer alloc.free(source);
-    file.close();
+    var stdout = std.io.getStdOut().writer();
 
-    // Lex file
-    var lexer = Lexer.init(source);
+    var lexer = Lexer.init(source, allocator); 
+    defer lexer.deinit();
 
-    // Parse file
-    var parser = Parser.init(alloc, &lexer);
+    try lexer.dump(stdout);
+    lexer.reset();
+
+    var ast = Ast.init(allocator);
+    defer ast.deinit();
+
+    var parser = Parser.init(&lexer, &ast, allocator);
     defer parser.deinit();
 
-    var ast = parser.parse() catch {
-
-        for (parser.errors.items) |err| {
-            try errors.reportParseError(err, stdout, source);            
+    parser.parse() catch {
+        
+        for (parser.errors.items) |*err| {
+            try err.print(source, stdout);
         }
-
-        try stdout.print(
-            \\Abort compilation due to {d} errors
-            \\
-            , .{
-                parser.errors.items.len,
-            }
-        );
 
         return 1;
     };
-
-    //@import("ast.zig").print(source, &ast);
-
-    // Create symbol table
-    var symtab = try SymbolTable.init(alloc, &ast, source);
-    defer symtab.deinit();
-
-    symtab.resolve() catch {
-
-        for (symtab.errors.items) |err| {
-            try errors.reportSymbolResolutionError(err, stdout, source);
-        }
-
-        try stdout.print(
-            \\Abort compilation due to {d} errors
-            \\
-            , .{
-                symtab.errors.items.len,
-            }
-        );
-
-        return 1;
-    };
-
-    // Generate assembly
-    var codegen = CodeGen.init(&ast, alloc, &symtab);
-    defer codegen.deinit();
-
-    codegen.initWriters();
-    try codegen.generate();
-
-    // Output
-    var output = try cwd.createFile("./output.S", .{});
-    var out_writer = output.writer();
-    try codegen.output(&out_writer);
+    try ast.dump(stdout);
 
     return 0;
 }

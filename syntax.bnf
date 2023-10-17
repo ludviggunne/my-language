@@ -1,47 +1,70 @@
 
-<statement_list> ::= 
-    <statement> <statement_list> | 
-    <statement>;
+<Program> ::= <ToplevelList>;
 
-<statement> ::= 
-    <declaration>     |
-    <assignment>      |
-    <block_statement> |
-    <if_statement>    |
-    <while_statement> |
-    <print_statement> |
-    <break_statement>;
+<ToplevelList> ::= 
+    <TopLevel> <ToplevelList> | 
+    <TopLevel>;
 
-<declaration> ::= "let" "identifier" "=" <expression> ";";
+<TopLevel> ::= <FuncDecl>;
 
-<assignment> ::= "identifier" ("=" | "+=" | "*=" | "/=" | "%=") <expression> ";";
+<FuncDecl> ::= "fn" <IDENTIFIER> "(" <ParamList> ")" "=" <Block> ";";
 
-<expression> ::=
-    <sum> ("<" | "<=" | "==" | "!=" | ">=" | ">") <expression> |
-    <sum>;
+<Block> ::= "{" (StatementList | Empty) "}";
 
-<sum> ::=
-    <product> ("+" | "-") <sum> |
-    <product>;
+<StatementList> ::= 
+    <Statement> <StatementList> | 
+    <Statement>;
 
-<product> ::=
-    <factor> ("*" | "/" | "%") <product> |
-    <factor>;
+<Statement> ::=
+    <Declaration>     |
+    <Assignment>      |
+    <IfStatement>     |
+    <WhileStatement>  |
+    <BreakStatement>  |
+    <ReturnStatement> |
+    <PrintStatement>;
 
-<factor> ::=
-    "identifier"         |
-    "literal"            |
-    ("-" | "!") <factor> |
-    "(" <expression> ")";
+<Declaration> ::= "let" "IDENTIFIER" "=" <Expression> ";";
 
-<if_statement> ::= 
-    "if" <expression> <block_statement> |
-    "if" <expression> <block_statement> "else" <block_statement>;
+<Assignment> ::= "IDENTIFIER" "=" <Expression> ";";
 
-<while_statement> ::= "while" <expression> <block_statement>;
+<Expression> ::= 
+    <Sum> ("<" | "<=" | "==" | ">=" | ">" | "!=") Expression |
+    <Sum>;
 
-<block_statement> ::= "{" <statement_list> "}";
+<Sum> ::=
+    <Product> ("+" | "-") <Sum> |
+    <Product>;
 
-<print_statement> ::= "print" <expression> ";";
+<Product> ::=
+    <Factor> ("*" | "/" | "%") <Product> |
+    <Factor>;
 
-<break_statement> ::= "break" ";";
+<Factor> ::=
+    <Call>               |
+    ("-" | "!") <Factor> |
+    "IDENTIFIER"         |
+    "LITERAL"            |
+    "(" <Expression> ")";
+
+<Call> ::= "IDENTIFIER" "(" <ArgList> ")";
+
+<ParamList> ::=
+    "IDENTIFIER" "," <ParamList> |
+    "IDENTIFIER";
+
+<ArgList> ::=
+    <Expression> "," <ArgList> |
+    <Expression>;
+
+<IfStatement> ::=
+    "if" <Expression> <Block> |
+    "if" <Expression> <Block> "else" <Block>;
+
+<WhileStatement> ::= "while" <Expression> <Block>;
+
+<ReturnStatement> ::= "return" <Expression> ";";
+
+<BreakStatement> ::= "break" ";"
+
+<PrintStatement> ::= "print" <Expression> ";"

@@ -1,46 +1,54 @@
 
+const Self = @This();
+const Error = @import("Error.zig");
+
 pub const Kind = enum {
+    @"+",
+    @"-",
+    @"*",
+    @"/",
+    @"%",
+    @"+=",
+    @"-=",
+    @"*=",
+    @"/=",
+    @"%=",
+    @"<",
+    @">",
+    @"=",
+    @"!",
+    @"<=",
+    @">=",
+    @"==",
+    @"!=",
+    @"(",
+    @")",
+    @"{",
+    @"}",
+    @":",
+    @";",
+    @",",
 
-    identifier, // int, var
-    literal,    // 1232
+    @"if",
+    @"else",
+    @"while",
+    @"break",
+    @"continue",
+    @"let",
+    @"fn",
+    @"return",
+    @"print",
 
-    @"+",       // +
-    @"-",       // -
-    @"*",       // *
-    @"/",       // /
-    @"%",       // %
-    @"=",       // =
-    @">",       // >
-    @"<",       // <
-    @"!",       // !
-
-    @"+=",      // +=
-    @"-=",      // -=
-    @"*=",      // *=
-    @"/=",      // /=
-    @"%=",      // %=
-    @"==",      // ==
-    @">=",      // >=
-    @"<=",      // <=
-    @"!=",      // !=
-
-    @";",       // ;
-    @":",       // :
-    @"(",       // (
-    @")",       // )
-    @"{",       // {
-    @"}",       // }
-
-    @"if",      // if
-    @"while",   // while
-    @"else",    // else
-    @"let",     // let
-    @"print",   // print
-    @"break",   // break
+    identifier,
+    literal,
 
     err,
 };
 
-kind:  Kind,
-begin: usize,
-end:   usize,
+kind: Kind,
+where: []const u8,
+
+pub fn printReference(self: *Self, source: []const u8, writer: anytype) !void {
+
+    try Error.printReference(self.where, source, writer);
+}
