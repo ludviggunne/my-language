@@ -9,8 +9,8 @@ nodes: std.ArrayList(Node),
 pub const Node = union(enum) {
 
     empty,
-    break_statement,
-    continue_statement,
+    break_statement: []const u8,
+    continue_statement: []const u8,
 
     toplevel_list: struct {
         decl: usize,

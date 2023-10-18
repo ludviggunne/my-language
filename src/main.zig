@@ -7,10 +7,13 @@ const Parser         = @import("Parser.zig");
 const TypeChecker    = @import("TypeChecker.zig");
 const ConstantFolder = @import("ConstantFolder.zig");
 const SymbolTable    = @import("SymbolTable.zig");
+const CodeGen        = @import("CodeGen.zig");
 
 pub fn main() !u8 {
 
     const dump = true;
+
+    const stdout = std.io.getStdOut().writer();
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}) {};
     var allocator = gpa.allocator();
@@ -21,8 +24,6 @@ pub fn main() !u8 {
     const source = try file.readToEndAlloc(allocator, 2048);
     defer allocator.free(source);
     file.close();
-
-    var stdout = std.io.getStdOut().writer();
 
     var lexer = Lexer.init(source, allocator); 
     defer lexer.deinit();
@@ -49,6 +50,7 @@ pub fn main() !u8 {
     };
     if (dump) try ast.dump(stdout);
 
+    // Typecheck
     var type_checker = TypeChecker.init(&ast, allocator);
     defer type_checker.deinit();
     type_checker.check() catch {
@@ -60,6 +62,7 @@ pub fn main() !u8 {
         return 1;
     };
 
+    // Constant folding
     var folder = ConstantFolder.init(&ast, allocator);
     defer folder.deinit();
 
@@ -74,6 +77,7 @@ pub fn main() !u8 {
     
     if (dump) try ast.dump(stdout);
 
+    // Symbol resolution
     var symtab = try SymbolTable.init(&ast, allocator);
     defer symtab.deinit();
 
@@ -87,6 +91,21 @@ pub fn main() !u8 {
     };
 
     if (dump) try symtab.dump(stdout);
+
+    // Codegen
+    var output_file = try cwd.createFile("./output.S", .{});
+    var output = output_file.writer();
+
+    var codegen = CodeGen.init(&ast, &symtab, allocator);
+    defer codegen.deinit();
+    codegen.generate(output) catch {
+
+        for (codegen.errors.items) |err| {
+            try err.print(source, stdout);
+        }
+
+        return 1;
+    };
 
     return 0;
 }

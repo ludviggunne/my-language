@@ -1,5 +1,4 @@
 zig-out/
 zig-cache/
-assembly/
 output.S
 program

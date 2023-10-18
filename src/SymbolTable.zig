@@ -12,10 +12,7 @@ const Symbol = struct {
         variable: union(enum) {
             global,
             local: usize,
-            param: struct {
-                stack: usize,
-                register: usize,
-            },
+            param: usize,
         }
     },
 };
@@ -26,9 +23,8 @@ errors:         std.ArrayList(Error),
 symbols:        std.ArrayList(Symbol),
 scopes:         std.ArrayList(std.StringHashMap(usize)),
 current_scope:  usize,
-param_counter:  usize,
+local_counter:  usize,
 arg_counter:    usize,
-stack_counter:  usize,
 symbol_counter: usize,
 
 pub fn init(ast: *Ast, allocator: std.mem.Allocator) !Self {
@@ -40,9 +36,8 @@ pub fn init(ast: *Ast, allocator: std.mem.Allocator) !Self {
         .symbols        = std.ArrayList(Symbol).init(allocator),
         .scopes         = std.ArrayList(std.StringHashMap(usize)).init(allocator),
         .current_scope  = 0,
-        .param_counter  = 0,
+        .local_counter  = 0,
         .arg_counter    = 0,
-        .stack_counter  = 0,
         .symbol_counter = 0,
     };
 
@@ -216,11 +211,18 @@ fn resolveNode(self: *Self, id: usize) !void {
             );
             try self.pushScope();
             if (v.params) |params| {
-                self.param_counter = 0;
-                self.stack_counter = 0;
+                self.local_counter = 0;
                 try self.resolveNode(params);
             }
-            self.setParamCount(v.symbol, self.param_counter);
+            if (self.local_counter > 4) {
+                try self.pushError(.{
+                    .stage = .symbol_resolution,
+                    .where = v.name.where,
+                    .kind = .{ .param_overflow = self.local_counter, },
+                });
+                unreachable;
+            }
+            self.setParamCount(v.symbol, self.local_counter);
             // We don't want to push scope twice,
             //  so unwrap the block
             //  and resolve the content
@@ -234,17 +236,9 @@ fn resolveNode(self: *Self, id: usize) !void {
         .parameter_list => |*v| {
             v.symbol = try self.declare(.{
                 .name = v.name.where,
-                .kind = .{
-                    .variable = .{
-                        .param = .{
-                            .stack = self.stack_counter,
-                            .register = self.param_counter,
-                        },
-                    }
-                },
+                .kind = .{ .variable = .{ .param = self.local_counter }, },
             });
-            self.param_counter += 1;
-            self.stack_counter += 1;
+            self.local_counter += 1;
             if (v.next) |next| {
                 try self.resolveNode(next);
             }            
@@ -266,14 +260,14 @@ fn resolveNode(self: *Self, id: usize) !void {
         .declaration => |*v| {
             // resolve expression first so declaration
             //  doesn't reference itself
-            self.stack_counter += 1;
             try self.resolveNode(v.expr);
             v.symbol = try self.declare(.{
                 .name = v.name.where,
                 .kind = .{
-                    .variable = .{ .local = self.stack_counter, },
+                    .variable = .{ .local = self.local_counter, },
                 },
             });
+            self.local_counter += 1;
         },
 
         .assignment => |*v| {
@@ -352,7 +346,7 @@ pub fn dump(self: *Self, writer: anytype) !void {
         switch (symbol.kind) {
             .function => |v| try writer.print("function with {d} parameter(s)\n", .{ v, }),
             .variable => |v| switch (v) {
-                .param  => |u| try writer.print("param ({d}/{d})\n", .{ u.register, u.stack, }),
+                .param  => |u| try writer.print("param ({d})\n", .{ u, }),
                 .local  => |u| try writer.print("local ({d})\n", .{ u, }),
                 .global => try writer.print("global\n", .{}),
             }

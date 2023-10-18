@@ -53,6 +53,9 @@ kind: union(enum) {
         expected: usize,
         found:    usize,
     },
+    param_overflow: usize,
+    // Code generation
+    boc_outside_loop,
 },
 
 pub fn print(self: *const Self, source: []const u8, writer: anytype) !void {
@@ -142,6 +145,17 @@ pub fn print(self: *const Self, source: []const u8, writer: anytype) !void {
             try printReference(self.where.?, source, writer);
         },
 
+        .param_overflow => |v| {
+            try writer.print("Max 4 parameters allowed, {d} were declared\n", .{ v, });
+            try printReference(self.where.?, source, writer);
+        },
+
+        .boc_outside_loop => {
+            try writer.print("Found {s} statement outside loop\n", .{ self.where.?, });
+            try printReference(self.where.?, source, writer);
+        },
+
+
         else => try writer.print("UNIMPLEMENTED ERROR MESSAGE\n", .{}),
     }
 }
@@ -187,7 +201,7 @@ pub fn printReference(where: []const u8, source: []const u8, writer: anytype) !v
 
     const ref = reference(where, source);
     try writer.print("Line {d}: {s}\n", .{ ref.line_number, ref.line, }); 
-    try writer.print("        ", .{});
+    try writer.print("         ", .{});
     for (0..ref.line_index) |_| try writer.print(" ", .{});
     try writer.print("^\n", .{});
 }

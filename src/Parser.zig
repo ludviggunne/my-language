@@ -315,6 +315,7 @@ fn statementList(self: *Self) anyerror!usize {
         .@"continue" => self.continueStatement(),
         .@"print"    => self.printStatement(),
         .identifier  => self.assignment(),
+        .@"}"        => error.ParseError, // sync
         else         => unreachable,
     } catch |err| recover: {
         if (err == error.ParseError) {
@@ -345,15 +346,19 @@ fn statementList(self: *Self) anyerror!usize {
 }
 
 fn breakStatement(self: *Self) anyerror!usize {
-    _ = try self.expect(.take, .@"break");
+    const token = try self.expect(.take, .@"break");
     _ = try self.expect(.take, .@";");
-    return self.ast.push(.break_statement);
+    return self.ast.push(.{
+        .break_statement = token.where,
+    });
 }
 
 fn continueStatement(self: *Self) anyerror!usize {
-    _ = try self.expect(.take, .@"continue");
+    const token = try self.expect(.take, .@"continue");
     _ = try self.expect(.take, .@";");
-    return self.ast.push(.continue_statement);
+    return self.ast.push(.{
+        .continue_statement = token.where,
+    });
 }
 
 fn declaration(self: *Self) anyerror!usize {
