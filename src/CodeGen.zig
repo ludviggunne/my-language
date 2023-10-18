@@ -70,6 +70,10 @@ pub fn generate(self: *Self, writer: anytype) anyerror!void {
         \\
         , .{}
     );
+
+    if (self.errors.items.len > 0) {
+        return error.CodeGenError;
+    }
 }
 
 fn generateNode(self: *Self, id: usize, writer: anytype) anyerror!Register {
@@ -109,57 +113,6 @@ fn pushError(self: *Self, err: Error) anyerror!void {
 fn newLabel(self: *Self) usize {
     defer self.label_counter += 1;
     return self.label_counter;
-}
-
-fn evictAll(self: *Self, writer: anytype) anyerror!void {
-
-    for (&self.pool.registers, 0..) |*state, i| {
-        switch (state.*) {
-            .unused => continue,
-            .result => unreachable, // can't evict result
-            .symbol => |v| {
-                const register: Register = @enumFromInt(i);
-                try writer.print(
-                    \\    movq     %{0s}, {1s} // evict {2s}
-                    \\
-                    , .{
-                        @tagName(register),
-                        try self.stackStr(v),
-                        self.symtab.symbols.items[v].name,
-                    }
-                );
-                state.* = .unused;
-            },
-        }
-    }
-}
-
-fn alloc(self: *Self, symbol: ?usize, writer: anytype) anyerror!Register {
-
-    const allocation = try self.pool.alloc(symbol);
-    if (allocation.spilled) |spilled| {
-        try writer.print(
-            \\    movq     %{0s}, {1s} // evict {2s}
-            \\
-            , .{
-                @tagName(allocation.register),
-                try self.stackStr(spilled),
-                self.symtab.symbols.items[symbol.?].name,
-            }
-        );
-    }
-    if (allocation.load and symbol != null) {
-        try writer.print(
-            \\    movq     {0s}, %{1s} // load {2s}
-            \\
-            , .{
-                try self.stackStr(symbol.?),
-                @tagName(allocation.register),
-                self.symtab.symbols.items[symbol.?].name,
-            }
-        );
-    }
-    return allocation.register;
 }
 
 fn stackStr(self: *Self, id: usize) anyerror![]const u8 {
@@ -241,12 +194,25 @@ fn function(self: *Self, node: anytype, writer: anytype) anyerror!Register {
     
     // TODO: implement
 
+    const symbol = self.symtab.symbols.items[node.symbol];
+    
+    const local_count = switch (symbol.kind) {
+        .function => |v| v.local_count,
+        else => unreachable,
+    };
+
+    const offset = 8 * (local_count + local_count % 2);
+
     try writer.print(
         \\{0s}:
         \\    pushq    %rbp
         \\    movq     %rsp, %rbp
+        \\    subq     $-{1d}, %rsp
         \\
-        , .{ node.name.where, });
+        , .{
+            node.name.where,
+            offset,
+        });
 
     _ = try self.generateNode(node.body, writer);
 
@@ -268,71 +234,96 @@ fn parameterList(self: *Self, node: anytype, writer: anytype) anyerror!Register 
 
 fn declaration(self: *Self, node: anytype, writer: anytype) anyerror!Register {
 
-    const register = try self.alloc(node.symbol, writer);
     const expr_reg = try self.generateNode(node.expr, writer);
-    defer self.pool.freeIfResult(expr_reg);
+    defer self.pool.free(expr_reg);
 
     try writer.print(
-        \\    movq     %{0s}, %{1s}
+        \\    movq     %{0s}, {1s}
         \\
-        , .{ @tagName(expr_reg), @tagName(register), }
+        , .{ @tagName(expr_reg), try self.stackStr(node.symbol), }
     );
 
-    return register;
+    return .none;
 }
 
 fn assignment(self: *Self, node: anytype, writer: anytype) anyerror!Register {
 
-    const register = try self.alloc(node.symbol, writer);
+    const load_reg = try self.pool.alloc();
+    defer self.pool.free(load_reg);
+
     const expr_reg = try self.generateNode(node.expr, writer);
-    defer self.pool.freeIfResult(expr_reg);
+    defer self.pool.free(expr_reg);
 
     switch (node.operator.kind) {
 
         .@"=" => try writer.print(
-            \\    movq     %{0s}, %{1s}
+            \\    movq     %{0s}, {1s}
             \\
-            , .{ @tagName(expr_reg), @tagName(register), }
+            , .{
+                @tagName(expr_reg),
+                try self.stackStr(node.symbol),
+            }
         ),
 
         .@"+=" => try writer.print(
-            \\    addq     %{0s}, %{1s}
+            \\    movq     {0s}, %{1s}
+            \\    addq     %{2s}, %{1s}
+            \\    movq     %{1s}, {0s}
             \\
-            , .{ @tagName(expr_reg), @tagName(register), }
+            , .{
+                try self.stackStr(node.symbol),
+                @tagName(load_reg),
+                @tagName(expr_reg),
+            }
         ),
 
         .@"-=" => try writer.print(
-            \\    subq     %{0s}, %{1s}
+            \\    movq     {0s}, %{1s}
+            \\    subq     %{2s}, %{1s}
+            \\    movq     %{1s}, {0s}
             \\
-            , .{ @tagName(expr_reg), @tagName(register), }
+            , .{
+                try self.stackStr(node.symbol),
+                @tagName(load_reg),
+                @tagName(expr_reg),
+            }
         ),
         
         .@"*=" => try writer.print(
-            \\    movq     %{0s}, %rax
+            \\    movq     {0s}, %rax
             \\    imulq    %{1s}
-            \\    movq     %rax, %{1s}
+            \\    movq     %rax, %{0s}
             \\
-            , .{ @tagName(expr_reg), @tagName(register), }
+            , .{
+                try self.stackStr(node.symbol),
+                @tagName(expr_reg),
+            }
         ),
 
         .@"/=" => try writer.print(
             \\    xorq     %rdx, %rdx
-            \\    movq     %{1s}, %rax
+            \\    movq     {0s}, %rax
             \\    cqo
-            \\    idivq    %{0s}
-            \\    movq     %rax, %{1s}
+            \\    idivq    %{1s}
+            \\    movq     %rax, {0s}
             \\
-            , .{ @tagName(expr_reg), @tagName(register), }
+            , .{
+                try self.stackStr(node.symbol),
+                @tagName(expr_reg),
+            }
         ),
 
         .@"%=" => try writer.print(
             \\    xorq     %rdx, %rdx
-            \\    movq     %{1s}, %rax
+            \\    movq     {0s}, %rax
             \\    cqo
-            \\    idivq    %{0s}
-            \\    movq     %rdx, %{1s}
+            \\    idivq    %{1s}
+            \\    movq     %rdx, {0s}
             \\
-            , .{ @tagName(expr_reg), @tagName(register), }
+            , .{
+                try self.stackStr(node.symbol),
+                @tagName(expr_reg),
+            }
         ),
 
         else => unreachable, // illegal assignment operator
@@ -366,36 +357,31 @@ fn arithmetic(self: *Self, node: anytype, writer: anytype) anyerror!Register {
     const left = try self.generateNode(node.left, writer);
     const right = try self.generateNode(node.right, writer);
 
-    // If either of operands are non-variables, we can reuse
-    const result = if (self.pool.isResult(left)) left
-        else if (self.pool.isResult(right)) right
-            else try self.alloc(null, writer);
-
-    if (result != left) self.pool.freeIfResult(left);
-    if (result != right) self.pool.freeIfResult(right);
+    const result = left;
+    const discard = right;
+    
+    defer self.pool.free(discard);
 
     switch (node.operator.kind) {
 
         .@"+" => try writer.print(
-            \\    movq     %{1s}, %{0s}
-            \\    addq     %{2s}, %{0s}
+            \\    addq     %{0s}, %{1s}
             \\
-            , .{ @tagName(result), @tagName(left), @tagName(right), }
+            , .{ @tagName(right), @tagName(left), }
         ),
 
         .@"-" => try writer.print(
-            \\    movq     %{1s}, %{0s}
-            \\    subq     %{2s}, %{0s}
+            \\    subq     %{0s}, %{1s}
             \\
-            , .{ @tagName(result), @tagName(left), @tagName(right), }
+            , .{ @tagName(right), @tagName(left), }
         ),
 
         .@"*" => try writer.print(
             \\    movq     %{0s}, %rax
             \\    imulq    %{1s}
-            \\    movq     %rax, %{2s}
+            \\    movq     %rax, %{0s}
             \\
-            , .{ @tagName(left), @tagName(right), @tagName(result), }
+            , .{ @tagName(left), @tagName(right), }
         ),
 
         .@"/" => try writer.print(
@@ -403,9 +389,9 @@ fn arithmetic(self: *Self, node: anytype, writer: anytype) anyerror!Register {
             \\    movq     %{0s}, %rax
             \\    cqo
             \\    idivq    %{1s}
-            \\    movq     %rax, %{2s}
+            \\    movq     %rax, %{0s}
             \\
-            , .{ @tagName(left), @tagName(right), @tagName(result), }
+            , .{ @tagName(left), @tagName(right), }
         ),
 
         .@"%" => try writer.print(
@@ -413,9 +399,9 @@ fn arithmetic(self: *Self, node: anytype, writer: anytype) anyerror!Register {
             \\    movq     %{0s}, %rax
             \\    cqo
             \\    idivq    %{1s}
-            \\    movq     %rdx, %{2s}
+            \\    movq     %rdx, %{0s}
             \\
-            , .{ @tagName(left), @tagName(right), @tagName(result), }
+            , .{ @tagName(left), @tagName(right), }
         ),
 
         else => unreachable, // illegal arithmetic operator
@@ -429,12 +415,10 @@ fn comparison(self: *Self, node: anytype, writer: anytype) anyerror!Register {
     const left = try self.generateNode(node.left, writer);
     const right = try self.generateNode(node.right, writer);
     
-    const result = if (self.pool.isResult(left)) left
-        else if (self.pool.isResult(right)) right
-            else try self.alloc(null, writer);
+    const result = left;
+    const discard = right;
 
-    if (result != left) self.pool.freeIfResult(left);
-    if (result != right) self.pool.freeIfResult(right);
+    defer self.pool.free(discard);
     
     const jump_instruction = switch (node.operator.kind) {
         .@"<"  => "jl  ",
@@ -451,17 +435,16 @@ fn comparison(self: *Self, node: anytype, writer: anytype) anyerror!Register {
 
     try writer.print(
         \\    cmpq     %{1s}, %{0s}
-        \\    {3s}     .true_{4d}
-        \\    movq     $0, %{2s}
-        \\    jmp      .done_{5d}
-        \\.true_{4d}:
-        \\    movq     $1, %{2s}
-        \\.done_{5d}:
+        \\    {2s}     .true_{3d}
+        \\    movq     $0, %{0s}
+        \\    jmp      .done_{4d}
+        \\.true_{3d}:
+        \\    movq     $1, %{0s}
+        \\.done_{4d}:
         \\
         , .{
             @tagName(left),
             @tagName(right),
-            @tagName(result),
             jump_instruction,
             true_label,
             done_label,
@@ -474,25 +457,19 @@ fn comparison(self: *Self, node: anytype, writer: anytype) anyerror!Register {
 fn unary(self: *Self, node: anytype, writer: anytype) anyerror!Register {
 
     const operand = try self.generateNode(node.operand, writer);
-    const result = if (self.pool.isResult(operand)) operand
-        else try self.alloc(null, writer);
-
-    if (operand != result) self.pool.freeIfResult(operand);
 
     switch (node.operator.kind) {
         
         .@"-" => try writer.print(
-            \\    movq     %{0s}, %{1s}
-            \\    negq     %{1s}
+            \\    negq     %{0s}
             \\
-            , .{ @tagName(operand), @tagName(result), }
+            , .{ @tagName(operand), }
         ),
 
         .@"!" => try writer.print(
-            \\    movq     %{0s}, %{1s}
-            \\    xorq     $1, %{1s}
+            \\    xorq     $1, %{0s}
             \\
-            , .{ @tagName(operand), @tagName(result), }
+            , .{ @tagName(operand), }
         ),
 
         else => unreachable, // illegal unary operator
@@ -536,14 +513,13 @@ fn ifStatement(self: *Self, node: anytype, writer: anytype) anyerror!Register {
 
     const done_label = self.newLabel();
     const condition = try self.generateNode(node.condition, writer);
+    defer self.pool.free(condition);
 
     try writer.print(
         \\    cmpq     $1, %{s}
         \\
         , .{ @tagName(condition), }
     );
-
-    self.pool.free(condition);
 
     if (node.else_block) |else_block| {
         
@@ -596,10 +572,6 @@ fn whileStatement(self: *Self, node: anytype, writer: anytype) anyerror!Register
         .break_label = break_label,
     });
 
-    // We need to reset register state
-    //  because it may be fucked up by block
-    try self.evictAll(writer);
-
     try writer.print(
         \\.continue_{0d}:
         \\
@@ -607,10 +579,7 @@ fn whileStatement(self: *Self, node: anytype, writer: anytype) anyerror!Register
     );
 
     const condition = try self.generateNode(node.condition, writer);
-    // Free condition register so it's not used up in block
-    self.pool.freeIfResult(condition);
-
-    try self.evictAll(writer);
+    defer self.pool.free(condition);
 
     try writer.print(
         \\    cmpq     $1, %{0s}
@@ -628,38 +597,26 @@ fn whileStatement(self: *Self, node: anytype, writer: anytype) anyerror!Register
         , .{ continue_label, break_label, }
     );
 
-    try self.evictAll(writer);
-
     _ = self.loop_stack.popOrNull();
 
     return .none;
 }
 
 fn returnStatement(self: *Self, node: anytype, writer: anytype) anyerror!Register {
-   _ = .{ self, node, writer, };
-   unreachable;
+    _ = .{ self, node, writer, };
+    unreachable;
 }
 
 fn printStatement(self: *Self, node: anytype, writer: anytype) anyerror!Register {
 
     const expr = try self.generateNode(node.expr, writer);
-    self.pool.freeIfResult(expr);
+    defer self.pool.free(expr);
 
     try writer.print(
-        \\    push     %r8
-        \\    push     %r9
-        \\    push     %r10
-        \\    push     %r11
-        \\    push     %rbp
         \\    leaq     __fmt(%rip), %rdi
         \\    movq     %{0s}, %rsi
         \\    movq     $0, %rax
         \\    call     printf
-        \\    pop      %rbp
-        \\    pop      %r11
-        \\    pop      %r10
-        \\    pop      %r9
-        \\    pop      %r8
         \\
         , .{
             @tagName(expr),
@@ -671,12 +628,22 @@ fn printStatement(self: *Self, node: anytype, writer: anytype) anyerror!Register
 
 fn variable(self: *Self, node: anytype, writer: anytype) anyerror!Register {
 
-    return try self.alloc(node.symbol, writer);
+    const register = try self.pool.alloc();
+    try writer.print(
+        \\    movq     {0s}, %{1s}
+        \\
+        , .{
+            try self.stackStr(node.symbol),
+            @tagName(register),
+        }
+    );
+    
+    return register;
 }
 
 fn constant(self: *Self, node: anytype, writer: anytype) anyerror!Register {
     
-    const register = try self.alloc(null, writer);
+    const register = try self.pool.alloc();
     try writer.print(
         \\    movq     ${0d}, %{1s}
         \\

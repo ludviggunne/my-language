@@ -8,7 +8,10 @@ const Error = @import("Error.zig");
 const Symbol = struct {
     name: []const u8,
     kind: union(enum) {
-        function: usize,
+        function: struct {
+            param_count: usize,
+            local_count: usize,
+        },
         variable: union(enum) {
             global,
             local: usize,
@@ -94,8 +97,17 @@ fn setParamCount(self: *Self, id: usize, count: usize) void {
 
     var symbol = &self.symbols.items[id];
     switch (symbol.kind) {
-        .function => |*v| v.* = count,
+        .function => |*v| v.param_count = count,
         else => unreachable, // attempt to set param count for non-function
+    }
+}
+
+fn setLocalCount(self: *Self, id: usize, count: usize) void {
+
+    var symbol = &self.symbols.items[id];
+    switch (symbol.kind) {
+        .function => |*v| v.local_count = count,
+        else => unreachable, // attempt to set local count for non-function
     }
 }
 
@@ -112,14 +124,14 @@ fn matchParamCount(self: *Self, symbol_1: Symbol, symbol_2: Symbol) !void {
     switch (symbol_1.kind) {
         .function => |v1| switch (symbol_2.kind) {
             .function => |v2| {
-                if (v1 != v2) {
+                if (v1.param_count != v2.param_count) {
                     try self.pushError(.{
                         .stage = .symbol_resolution,
                         .where = symbol_2.name,
                         .kind = .{
                             .param_count_mismatch = .{
-                                .expected = v1,
-                                .found = v2,
+                                .expected = v1.param_count,
+                                .found = v2.param_count,
                             },
                         },
                     });
@@ -230,6 +242,7 @@ fn resolveNode(self: *Self, id: usize) !void {
                 .block => |b| try self.resolveNode(b.content),
                 else => unreachable,
             }
+            self.setLocalCount(v.symbol, self.local_counter);
             self.popScope();
         },
 
@@ -285,7 +298,12 @@ fn resolveNode(self: *Self, id: usize) !void {
             }
             v.symbol = try self.reference(.{
                 .name = v.name.where,
-                .kind = .{ .function = self.arg_counter, },
+                .kind = .{
+                    .function = .{
+                        .param_count = self.arg_counter,
+                        .local_count = undefined,
+                    },
+                },
             });
         },
 
@@ -344,7 +362,10 @@ pub fn dump(self: *Self, writer: anytype) !void {
     for (self.symbols.items, 0..) |symbol, i| {
         try writer.print("Symbol {s} ({d}): ", .{ symbol.name, i, });
         switch (symbol.kind) {
-            .function => |v| try writer.print("function with {d} parameter(s)\n", .{ v, }),
+            .function => |v| try writer.print(
+                "function with {d} parameter(s)\n",
+                .{ v.param_count, }
+            ),
             .variable => |v| switch (v) {
                 .param  => |u| try writer.print("param ({d})\n", .{ u, }),
                 .local  => |u| try writer.print("local ({d})\n", .{ u, }),
