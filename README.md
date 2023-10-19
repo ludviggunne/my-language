@@ -1,7 +1,8 @@
 
 # Compiler
 Compiler for my tiny language. Only compiles to **linux-x86_64**.
-Functions other than main are currently not supported.
+Only 64-bit signed integers as variables, all functions (except main) must return an integer.
+Parameter count is limited to 4.
 
 ## Requirements
 * Zig compiler
