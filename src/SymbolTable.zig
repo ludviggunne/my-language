@@ -222,8 +222,8 @@ fn resolveNode(self: *Self, id: usize) !void {
                 },
             );
             try self.pushScope();
+            self.local_counter = 0;
             if (v.params) |params| {
-                self.local_counter = 0;
                 try self.resolveNode(params);
             }
             if (self.local_counter > 4) {

@@ -7,7 +7,7 @@ const Register     = RegisterPool.Register;
 const SymbolTable  = @import("SymbolTable.zig");
 const Error        = @import("Error.zig");
 
-const ParamRegs = enum {
+const ArgumentRegister = enum {
     rdi,
     rsi,
     rdx,
@@ -25,10 +25,8 @@ pool:           RegisterPool,
 label_counter:  usize,
 loop_stack:     std.ArrayList(LoopState),
 errors:         std.ArrayList(Error),
-current_func:   struct {
-    returns: bool = false,
-    is_main: bool = false,
-},
+current_space:  usize,
+current_arg:    usize,
 
 pub fn init(
     ast: *Ast,
@@ -43,7 +41,8 @@ pub fn init(
         .label_counter = 0,
         .loop_stack    = std.ArrayList(LoopState).init(allocator),
         .errors        = std.ArrayList(Error).init(allocator),
-        .current_func  = .{},
+        .current_space = 0,
+        .current_arg   = 0,
     };
 }
 
@@ -131,9 +130,14 @@ fn stackStr(self: *Self, id: usize) anyerror![]const u8 {
         },
     };
 
-    const offset: i64 = -8 * @as(i64, @intCast(stack_id + 1));
-
+    const offset = stackOffset(stack_id);
     return std.fmt.bufPrint(&static.buf, "{d}(%rbp)", .{ offset, });
+}
+
+fn stackOffset(local_id: usize) i64 {
+
+    const offset: i64 = -8 * @as(i64, @intCast(local_id + 1));
+    return offset; 
 }
 
 fn breakStatement(self: *Self, node: anytype, writer: anytype) anyerror!Register {
@@ -156,6 +160,19 @@ fn breakStatement(self: *Self, node: anytype, writer: anytype) anyerror!Register
     );
 
     return .none;
+}
+
+fn stackSpace(self: *Self, func: anytype) usize {
+
+    var offset = 8 * func.local_count;
+
+    if (offset % 16 > 0) {
+        offset += 8;
+    }
+
+    self.current_space = offset;
+
+    return offset;
 }
 
 fn continueStatement(self: *Self, node: anytype, writer: anytype) anyerror!Register {
@@ -192,42 +209,41 @@ fn toplevelList(self: *Self, node: anytype, writer: anytype) anyerror!Register {
 
 fn function(self: *Self, node: anytype, writer: anytype) anyerror!Register {
     
-    // TODO: implement
-
     const symbol = self.symtab.symbols.items[node.symbol];
-    
-    const local_count = switch (symbol.kind) {
-        .function => |v| v.local_count,
-        else => unreachable,
+    const func = switch (symbol.kind) {
+        .function => |v| v,
+        else => unreachable, // tried to unwrap non-function as function
     };
 
-    const offset = 8 * (local_count + local_count % 2);
+    _ = self.stackSpace(func);
 
     try writer.print(
         \\{0s}:
-        \\    pushq    %rbp
-        \\    movq     %rsp, %rbp
-        \\    subq     $-{1d}, %rsp
         \\
-        , .{
-            node.name.where,
-            offset,
-        });
+        , .{ node.name.where }
+    );
+    
+    try self.calleeBegin(writer);
+
+    try spillParams(func.param_count, writer);
 
     _ = try self.generateNode(node.body, writer);
 
-    try writer.print(
-        \\    movq     $60, %rax
-        \\    movq     $0, %rdi
-        \\    syscall
-        \\
-        , .{}
-    );
+    if (std.mem.eql(u8, symbol.name, "main")) {
+        try writer.print(
+            \\    movq     $60, %rax
+            \\    movq     $0, %rdi
+            \\    syscall
+            \\
+            , .{}
+        );
+    }
 
     return .none;
 }
 
 fn parameterList(self: *Self, node: anytype, writer: anytype) anyerror!Register {
+    // UNUSED
    _ = .{ self, node, writer, };
    unreachable;
 }
@@ -479,13 +495,70 @@ fn unary(self: *Self, node: anytype, writer: anytype) anyerror!Register {
 }
 
 fn call(self: *Self, node: anytype, writer: anytype) anyerror!Register {
-   _ = .{ self, node, writer, };
-   unreachable;
+
+    self.current_arg = 0;
+    if (node.args) |args| {
+        _ = try self.generateNode(args, writer);
+    }
+
+    // pop possibly clobbered rdx
+    if (self.current_arg >= 3) {
+        try writer.print(
+            \\    pop      %rdx
+            \\
+            , .{}
+        );
+    }
+    
+    try callerSave(writer);
+    try writer.print(
+        \\    call     {0s}
+        \\
+        , .{ node.name.where, }
+    );
+    try callerRestore(writer);
+
+    const result = try self.pool.alloc();
+    
+    try writer.print(
+        \\    movq     %rax, %{0s}
+        \\
+        , .{ @tagName(result), }
+    );
+
+    return result;
 }
 
 fn argumentList(self: *Self, node: anytype, writer: anytype) anyerror!Register {
-   _ = .{ self, node, writer, };
-   unreachable;
+
+    const expr = try self.generateNode(node.expr, writer);
+    defer self.pool.free(expr);
+
+    const arg_reg: ArgumentRegister 
+        = @enumFromInt(self.current_arg);
+
+    self.current_arg += 1;
+    
+    try writer.print(
+        \\    movq     %{0s}, %{1s}
+        \\
+        , .{ @tagName(expr), @tagName(arg_reg), }
+    );
+
+    // rdx may be clobbered
+    if (arg_reg == .rdx) {
+        try writer.print(
+            \\    push     %rdx
+            \\
+            , .{}
+        );
+    }
+
+    if (node.next) |next| {
+        _ = try self.generateNode(next, writer);
+    }
+
+    return .none;
 }
 
 fn block(self: *Self, node: anytype, writer: anytype) anyerror!Register {
@@ -602,11 +675,6 @@ fn whileStatement(self: *Self, node: anytype, writer: anytype) anyerror!Register
     return .none;
 }
 
-fn returnStatement(self: *Self, node: anytype, writer: anytype) anyerror!Register {
-    _ = .{ self, node, writer, };
-    unreachable;
-}
-
 fn printStatement(self: *Self, node: anytype, writer: anytype) anyerror!Register {
 
     const expr = try self.generateNode(node.expr, writer);
@@ -651,4 +719,101 @@ fn constant(self: *Self, node: anytype, writer: anytype) anyerror!Register {
     );
 
     return register;
+}
+
+fn callerSave(writer: anytype) anyerror!void {
+
+    try writer.print(
+        \\    push     %r8
+        \\    push     %r9
+        \\    push     %r10
+        \\    push     %r11
+        \\
+        , .{}
+    );
+}
+
+fn callerRestore(writer: anytype) anyerror!void {
+
+    try writer.print(
+        \\    pop      %r11
+        \\    pop      %r10
+        \\    pop      %r9
+        \\    pop      %r8
+        \\
+        , .{}
+    );
+}
+
+fn calleeBegin(self: *Self, writer: anytype) anyerror!void {
+
+    try writer.print(
+        \\    push     %rbp
+        \\    subq     ${0d}, %rsp
+        \\    movq     %rsp, %rbp
+        \\    push     %r12
+        \\    push     %r13
+        \\    push     %r14
+        \\    push     %r15
+        \\
+        , .{ self.current_space, }
+    );    
+}
+
+fn calleeEnd(self: *Self, writer: anytype) anyerror!void {
+
+    try writer.print(
+        \\    pop      %r15
+        \\    pop      %r14
+        \\    pop      %r13
+        \\    pop      %r12
+        \\    addq     ${0d}, %rsp
+        \\    pop      %rbp
+        \\
+        , .{ self.current_space, }
+    );    
+}
+
+fn spillParams(count: usize, writer: anytype) anyerror!void {
+
+    for (std.enums.values(ArgumentRegister), 0..) |reg, i| {
+
+        if (i == count) break;
+
+        const offset = stackOffset(i);
+        try writer.print(
+           \\    movq     %{0s}, {1d}(%rbp)
+           \\
+           , .{ @tagName(reg), offset, }
+        );
+    }
+}
+fn returnStatement(self: *Self, node: anytype, writer: anytype) anyerror!Register {
+
+    if (node.expr) |expr| {
+        const expr_reg = try self.generateNode(expr, writer);
+        defer self.pool.free(expr_reg);
+        try writer.print(
+            \\    movq     %{0s}, %rax
+            \\
+            , .{ @tagName(expr_reg), }
+        );
+    } else {
+        try writer.print(
+            \\    movq     $0, %rax
+            \\
+            , .{}
+        );
+    }
+
+
+    try self.calleeEnd(writer);
+
+    try writer.print(
+        \\    ret
+        \\
+        , .{}
+    ); 
+
+    return .none;
 }

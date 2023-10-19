@@ -1,20 +1,21 @@
 
 # - - - - - - FIBONACCI - - - - - - -
 
-fn main() = {
+fn fib(n) = {
     
-    # Number of fibonacci numbers to be computed
-    let x = 12;
+    if n < 2 {
+        return n;
+    } else {
+        return fib(n - 1) + fib(n - 2);
+    }
+}
 
-    let a = 0;
-    let b = 1;
+fn main() = {
 
-    while x > 0 {
-        
-        let c = a + b;
-        b = a;
-        a = c;
-        x -= 1;
-        print c;
+    let n = 0;
+    
+    while n <= 10 {
+        print fib(n);
+        n += 1;
     }
 }

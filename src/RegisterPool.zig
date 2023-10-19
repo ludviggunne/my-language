@@ -26,10 +26,8 @@ pub fn reset(self: *Self) void {
 
 pub fn alloc(self: *Self) !Register {
     
-    for (std.enums.values(Register)) |register| {
-        if (register == .none) {
-            continue;
-        }
+    for (std.enums.values(Register)[1..]) |register| {
+
         if (!self.in_use.contains(register)) {
             self.in_use.insert(register);
             return register;
