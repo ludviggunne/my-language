@@ -131,10 +131,18 @@ pub fn main() !u8 {
         return 1;
     };
 
+    // Invoke gcc
     try stdout.print("Invoking gcc...\n", .{});
     const gcc_args = [_][] const u8 { "gcc", "./asm.S", "-o", config.output, };
-    var process = std.process.Child.init(&gcc_args, allocator);
-    try process.spawn();
+    var gcc = std.process.Child.init(&gcc_args, allocator);
+    try gcc.spawn();
+    _ = try gcc.wait(); // TODO: Handle return code
+
+    // Clean up
+    const rm_args = [_][] const u8 { "rm", "./asm.S", };
+    var rm = std.process.Child.init(&rm_args, allocator);
+    try rm.spawn();
+    _ = try rm.wait();
 
     try stdout.print("Compilation complete!\n", .{});
 
