@@ -28,8 +28,16 @@
 
 <Assignment> ::= "IDENTIFIER" "=" <Expression> ";";
 
-<Expression> ::= 
-    <Sum> ("<" | "<=" | "==" | ">=" | ">" | "!=") Expression |
+<Expression> ::=
+    <Equality> ("and" | "or") <Equality> |
+    <Equality>;
+
+<Equality> ::=
+    <Comparison> "==" <Comparison> |
+    <Comparison>; 
+
+<Comparison> ::= 
+    <Sum> ("<" | "<=" | "==" | ">=" | ">" | "!=") <Sum> |
     <Sum>;
 
 <Sum> ::=
