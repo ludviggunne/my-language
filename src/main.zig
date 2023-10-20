@@ -48,7 +48,7 @@ pub fn main() !u8 {
 
         return 1;
     };
-    if (dump) try ast.dump(stdout);
+    if (dump) try ast.dump(stdout, allocator);
 
     // Typecheck
     var type_checker = TypeChecker.init(&ast, allocator);
@@ -75,7 +75,7 @@ pub fn main() !u8 {
         return 1;
     };
     
-    if (dump) try ast.dump(stdout);
+    if (dump) try ast.dump(stdout, allocator);
 
     // Symbol resolution
     var symtab = try SymbolTable.init(&ast, allocator);
