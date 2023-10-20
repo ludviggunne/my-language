@@ -126,20 +126,35 @@ pub fn push(self: *Self, node: Node) !usize {
     return self.nodes.items.len - 1;
 }
 
-pub fn dump(self: *Self, writer: anytype) !void{
+pub fn dump(self: *Self, writer: anytype, allocator: std.mem.Allocator) !void{
 
     try writer.print("---------- AST Dump ----------\n", .{});
-    try self.dumpNode(self.root, writer, 0);
+    var bars = std.ArrayList(bool).init(allocator);
+    defer bars.deinit();
+    try self.dumpNode(self.root, writer, 0, &bars);
 }
 
-fn dumpNode(self: *Self, id: usize, writer: anytype, i: usize) !void {
+fn dumpNode(
+    self: *Self,
+    id: usize,
+    writer: anytype,
+    i: usize,
+    bars: *std.ArrayList(bool)
+) !void {
 
     if (i > 0) {
-        for (0..i - 1) |_| {
-            try writer.print("|   ", .{});
+        for (0..i - 1) |j| {
+            if (bars.items[j]) {
+                try writer.print("|   ", .{});
+            } else {
+                try writer.print("    ", .{});
+            }
         }
         try writer.print("*---", .{});
     }
+
+    try setBar(bars, i);
+    defer unsetBar(bars, i);
 
     const node = &self.nodes.items[id];
     switch (node.*) {
@@ -148,43 +163,58 @@ fn dumpNode(self: *Self, id: usize, writer: anytype, i: usize) !void {
 
         .toplevel_list => |v| {
             try writer.print("toplevel-list\n", .{});
-            try self.dumpNode(v.decl, writer, i + 1);
+            try spacing(writer, i + 1, bars);
+            if (v.next == null) unsetBar(bars, i);
+            try self.dumpNode(v.decl, writer, i + 1, bars);
             if (v.next) |next| {
-                try self.dumpNode(next, writer, i + 1);
+                unsetBar(bars, i);
+                try self.dumpNode(next, writer, i + 1, bars);
             }
         },
 
         .function => |v| {
             try writer.print("function \"{s}\"\n", .{ v.name.where, });
+            try spacing(writer, i + 1, bars);
             if (v.params) |params| {
-                try self.dumpNode(params, writer, i + 1);
+                try self.dumpNode(params, writer, i + 1, bars);
             }
-            try self.dumpNode(v.body, writer, i + 1);
+            unsetBar(bars, i);
+            try self.dumpNode(v.body, writer, i + 1, bars);
         },
 
         .parameter_list => |v| {
             try writer.print("param \"{s}\"\n", .{ v.name.where, });
+            if (v.next == null) unsetBar(bars, i);
+            try spacing(writer, i + 1, bars);
             if (v.next) |next| {
-                try self.dumpNode(next, writer, i + 1);
+                unsetBar(bars, i);
+                try self.dumpNode(next, writer, i + 1, bars);
             }
         },
 
         .block => |v| {
             try writer.print("block\n", .{});
-            try self.dumpNode(v.content, writer, i + 1);
+            try spacing(writer, i + 1, bars);
+            unsetBar(bars, i);
+            try self.dumpNode(v.content, writer, i + 1, bars);
         },
 
         .statement_list => |v| {
             try writer.print("statement-list\n", .{});
-            try self.dumpNode(v.statement, writer, i + 1);
+            try spacing(writer, i + 1, bars);
+            if (v.next == null) unsetBar(bars, i);
+            try self.dumpNode(v.statement, writer, i + 1, bars);
             if (v.next) |next| {
-                try self.dumpNode(next, writer, i + 1);
+                unsetBar(bars, i);
+                try self.dumpNode(next, writer, i + 1, bars);
             }
         },
 
         .declaration => |v| {
             try writer.print("declaration \"{s}\"\n", .{ v.name.where, });
-            try self.dumpNode(v.expr, writer, i + 1);
+            try spacing(writer, i + 1, bars);
+            unsetBar(bars, i);
+            try self.dumpNode(v.expr, writer, i + 1, bars);
         },
 
         .assignment => |v| {
@@ -192,65 +222,90 @@ fn dumpNode(self: *Self, id: usize, writer: anytype, i: usize) !void {
                 "assignment \"{s}\" ({s})\n",
                 .{ v.name.where, @tagName(v.operator.kind), }
             );
-            try self.dumpNode(v.expr, writer, i + 1);
+            try spacing(writer, i + 1, bars);
+            unsetBar(bars, i);
+            try self.dumpNode(v.expr, writer, i + 1, bars);
         },
 
         .binary => |v| {
             try writer.print("binary ({s})\n", .{ @tagName(v.operator.kind), });
-            try self.dumpNode(v.left, writer, i + 1);
-            try self.dumpNode(v.right, writer, i + 1);
+            try spacing(writer, i + 1, bars);
+            try self.dumpNode(v.left, writer, i + 1, bars);
+            unsetBar(bars, i);
+            try self.dumpNode(v.right, writer, i + 1, bars);
         },
 
         .unary => |v| {
             try writer.print("unary ({s})\n", .{ @tagName(v.operator.kind), });
-            try self.dumpNode(v.operand, writer, i + 1);
+            try spacing(writer, i + 1, bars);
+            unsetBar(bars, i);
+            try self.dumpNode(v.operand, writer, i + 1, bars);
         },
 
         .call => |v| {
             try writer.print("call \"{s}\"\n", .{ v.name.where, });
+            try spacing(writer, i + 1, bars);
+            unsetBar(bars, i);
             if (v.args) |args| {
-                try self.dumpNode(args, writer, i + 1);
+                try self.dumpNode(args, writer, i + 1, bars);
             }
         },
 
         .argument_list => |v| {
             try writer.print("arg\n", .{});
-            try self.dumpNode(v.expr, writer, i + 1);
+            try spacing(writer, i + 1, bars);
+            if (v.next == null) unsetBar(bars, i);
+            try self.dumpNode(v.expr, writer, i + 1, bars);
             if (v.next) |next| {
-                try self.dumpNode(next, writer, i + 1);
+            unsetBar(bars, i);
+                try self.dumpNode(next, writer, i + 1, bars);
             }
         },
 
-        .break_statement => try writer.print("break\n", .{}),
+        .break_statement => {
+            unsetBar(bars, i);
+            try writer.print("break\n", .{});
+        },
 
-        .continue_statement => try writer.print("continue\n", .{}),
+        .continue_statement => {
+            unsetBar(bars, i);
+            try writer.print("continue\n", .{});
+        },
 
         .return_statement => |v| {
             try writer.print("return\n", .{});
+            try spacing(writer, i + 1, bars);
+            unsetBar(bars, i);
             if (v.expr) |expr| {
-                try self.dumpNode(expr, writer, i + 1);
+                try self.dumpNode(expr, writer, i + 1, bars);
             }
         }, 
 
         .print_statement => |v| {
             try writer.print("print\n", .{});
-            try self.dumpNode(v.expr, writer, i + 1);
+            try spacing(writer, i + 1, bars);
+            unsetBar(bars, i);
+            try self.dumpNode(v.expr, writer, i + 1, bars);
         }, 
 
         .if_statement => |v| {
             const str = if (v.else_block) |_| "if-else\n" else "if\n";
             try writer.print("{s}", .{ str, });
-            try self.dumpNode(v.condition, writer, i + 1);
-            try self.dumpNode(v.block, writer, i + 1);
+            try spacing(writer, i + 1, bars);
+            try self.dumpNode(v.condition, writer, i + 1, bars);
+            try self.dumpNode(v.block, writer, i + 1, bars);
+            unsetBar(bars, i);
             if (v.else_block) |else_block| {
-                try self.dumpNode(else_block, writer, i + 1);
+                try self.dumpNode(else_block, writer, i + 1, bars);
             }
         },
 
         .while_statement => |v| {
             try writer.print("while\n", .{});
-            try self.dumpNode(v.condition, writer, i + 1);
-            try self.dumpNode(v.block, writer, i + 1);
+            try spacing(writer, i + 1, bars);
+            try self.dumpNode(v.condition, writer, i + 1, bars);
+            unsetBar(bars, i);
+            try self.dumpNode(v.block, writer, i + 1, bars);
         },
 
         .variable => |v| {
@@ -266,4 +321,33 @@ fn dumpNode(self: *Self, id: usize, writer: anytype, i: usize) !void {
             }
         },
     }
+
+}
+
+fn spacing(writer: anytype, i: usize, bars: *std.ArrayList(bool)) !void {
+
+    if (i > 0) {
+        for (0..i - 1) |j| {
+            if (bars.items[j]) {
+                try writer.print("|   ", .{});
+            } else {
+                try writer.print("    ", .{});
+            }
+        }
+        try writer.print("|\n", .{});
+    }
+}
+
+fn setBar(bars: *std.ArrayList(bool), at: usize) !void {
+    
+    while (at >= bars.items.len) {
+        try bars.append(false); 
+    }
+
+    bars.items[at] = true;
+}
+
+fn unsetBar(bars: *std.ArrayList(bool), at: usize) void {
+    
+    bars.items[at] = false;
 }
