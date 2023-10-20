@@ -1,22 +1,24 @@
 
-const std   = @import("std");
-const Self  = @This();
-const Ast   = @import("Ast.zig");
-const Error = @import("Error.zig");
-
-pub const Type = enum {
-    boolean,
-    integer,
-    none,
-};
+const std         = @import("std");
+const Self        = @This();
+const Ast         = @import("Ast.zig");
+const Error       = @import("Error.zig");
+const SymbolTable = @import("SymbolTable.zig");
+const Type        = @import("types.zig").Type;
 
 ast: *Ast,
+symtab: *SymbolTable,
 errors: std.ArrayList(Error),
+return_type: Type,
+param_index: usize,
 
-pub fn init(ast: *Ast, allocator: std.mem.Allocator) Self {
+pub fn init(ast: *Ast, symtab: *SymbolTable, allocator: std.mem.Allocator) Self {
     return .{
-        .ast = ast,
+        .ast    = ast,
+        .symtab = symtab,
         .errors = std.ArrayList(Error).init(allocator),
+        .return_type = .none,
+        .param_index = 0,
     };
 }
 
@@ -43,9 +45,10 @@ fn checkNode(self: *Self, id: usize) !Type {
         .continue_statement,
         .parameter_list, => return .none,
 
-        .constant => return .integer,
+        .constant => |v| return v.type_,
 
-        .variable => return .integer,
+        .variable => |v|
+            return self.symtab.symbols.items[v.symbol].type_,
 
         // UNARY
         .unary => |v| {
@@ -164,8 +167,7 @@ fn checkNode(self: *Self, id: usize) !Type {
 
         // FUNCTION
         .function => |v| {
-            // No need to type check parameters,
-            //  they are always integers
+            self.return_type = v.return_type;
             _ = try self.checkNode(v.body);
             return .none;
         },
@@ -190,15 +192,16 @@ fn checkNode(self: *Self, id: usize) !Type {
         .declaration => |v| {
 
             const expr = try self.checkNode(v.expr);
+            const expected = self.symtab.symbols.items[v.symbol].type_;
 
-            if (expr != .integer) {
+            if (expr != expected) {
                 try self.pushError(.{
                     .stage = .typechecking,
                     .where = v.name.where,
                     .kind = .{
-                        .binary_mismatch = .{
-                            .left = .integer,
-                            .right = expr,
+                        .assignment_mismatch = .{
+                            .expected = expected,
+                            .found = expr,
                         },
                     },
                 });
@@ -212,15 +215,16 @@ fn checkNode(self: *Self, id: usize) !Type {
         .assignment => |v| {
 
             const expr = try self.checkNode(v.expr);
+            const expected = self.symtab.symbols.items[v.symbol].type_;
 
-            if (expr != .integer) {
+            if (expr != expected) {
                 try self.pushError(.{
                     .stage = .typechecking,
                     .where = v.operator.where,
                     .kind = .{
-                        .binary_mismatch = .{
-                            .left = .integer,
-                            .right = expr,
+                        .assignment_mismatch = .{
+                            .expected = expected,
+                            .found = expr,
                         },
                     },
                 });
@@ -276,11 +280,16 @@ fn checkNode(self: *Self, id: usize) !Type {
 
             if (v.expr) |expr| {
                 const expr_type = try self.checkNode(expr);            
-                if (expr_type != .integer) {
+                if (expr_type != self.return_type) {
                     try self.pushError(.{
                         .stage = .typechecking,
                         .where = v.keyword.where,
-                        .kind = .return_mismatch,
+                        .kind = .{ 
+                            .return_mismatch = .{
+                                .expected = self.return_type,
+                                .found = expr_type,
+                            },
+                        },
                     });
                     unreachable;
                 }
@@ -290,27 +299,46 @@ fn checkNode(self: *Self, id: usize) !Type {
         },
 
         .call => |v| {
+
+            const symbol = self.symtab.symbols.items[v.symbol];
+            const return_type = symbol.type_;
+            const func = switch (symbol.kind) {
+                .function => |f| f,
+                else => unreachable,
+            };
+
             if (v.args) |args| {
+                self.param_index = func.params.?;
                 _ = try self.checkNode(args);
             }
             // functions always return integers
-            return .integer;
+            return return_type;
         },
 
         .argument_list => |v| {
 
             const argument = try self.checkNode(v.expr);
+            const param = switch (self.ast.nodes.items[self.param_index]) {
+                .parameter_list => |p| p,
+                else => unreachable,
+            };
 
-            if (argument != .integer) {
+            if (argument != param.type_) {
                 try self.pushError(.{
                     .stage = .typechecking,
                     .where = v.delimiter.where,
-                    .kind = .argument_mismatch,
+                    .kind = .{ 
+                        .argument_mismatch = .{
+                            .expected = param.type_,
+                            .found    = argument,
+                        }, 
+                    },
                 });
                 unreachable;
             }
 
             if (v.next) |next| {
+                self.param_index = param.next.?;
                 _ = try self.checkNode(next);
             }
 

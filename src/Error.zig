@@ -2,7 +2,7 @@
 const std = @import("std");
 const Self = @This();
 const Token = @import("Token.zig");
-const Type = @import("TypeChecker.zig").Type;
+const Type = @import("types.zig").Type;
 
 pub const Reference = struct {
     line:        []const u8,
@@ -47,8 +47,18 @@ kind: union(enum) {
         found:    Type,
     },
     control_flow_mismatch,
-    return_mismatch,
-    argument_mismatch,
+    assignment_mismatch: struct {
+        expected: Type,
+        found:    Type,
+    },
+    argument_mismatch: struct {
+        expected: Type,
+        found:    Type,
+    },
+    return_mismatch: struct {
+        expected: Type,
+        found:    Type,
+    },
     // Constant foldin
     division_by_zero,
     // Symbol resolution
@@ -120,18 +130,32 @@ pub fn print(self: *const Self, source: []const u8, writer: anytype) !void {
             try printReference(self.where.?, source, writer);
         },
 
+        .assignment_mismatch => |v| {
+            try writer.print(
+                "Type mismatch: can't assign variable of type {0s} to {1s}\n",
+                .{ @tagName(v.expected), @tagName(v.found), }
+            );
+            try printReference(self.where.?, source, writer);
+        },
+
+        .argument_mismatch => |v| {
+            try writer.print(
+                "Argument type mismatch: expected {0s}, found {1s}\n",
+                .{ @tagName(v.expected), @tagName(v.found), }
+            );
+            try printReference(self.where.?, source, writer);
+        },
+
+        .return_mismatch => |v| {
+            try writer.print(
+                "Type mismatch: Can't return {0s} from function with declared return type {1s}\n",
+                .{ @tagName(v.found), @tagName(v.expected), }
+            );
+            try printReference(self.where.?, source, writer);
+        },
+
         .control_flow_mismatch => {
             try writer.print("Type mismatch: condition for control block must be boolean\n", .{});
-            try printReference(self.where.?, source, writer);
-        },
-        
-        .return_mismatch => {
-            try writer.print("Type mismatch: non-integer in return statement expression\n", .{});
-            try printReference(self.where.?, source, writer);
-        },
-    
-        .argument_mismatch => {
-            try writer.print("Type mismatch: only integer arguments are allowed\n", .{});
             try printReference(self.where.?, source, writer);
         },
 
@@ -216,7 +240,7 @@ pub fn printReference(where: []const u8, source: []const u8, writer: anytype) !v
 
     const ref = reference(where, source);
     try writer.print("Line {d}: {s}\n", .{ ref.line_number, ref.line, }); 
-    try writer.print("         ", .{});
+    try writer.print("        ", .{});
     for (0..ref.line_index) |_| try writer.print(" ", .{});
     try writer.print("^\n", .{});
 }

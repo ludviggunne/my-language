@@ -9,6 +9,7 @@ const Ast   = @import("Ast.zig");
 const Lexer = @import("Lexer.zig");
 const Token = @import("Token.zig");
 const Error = @import("Error.zig");
+const Type  = @import("types.zig").Type;
 
 const Action = enum {
     take,
@@ -247,14 +248,26 @@ fn function(self: *Self) anyerror!usize {
         });
     }
 
+    _ = try self.expect(.take, .@":");
+    const return_token = try self.expectOneOf(
+        .take,
+        &[_] Token.Kind { .@"int", .@"bool", }
+    );
+    const return_type: Type = switch (return_token.kind) {
+        .@"int"  => .integer,
+        .@"bool" => .boolean,
+        else => unreachable,
+    };
+
     _ = try self.expect(.take, .@"=");
     const body = try self.block();
 
     return self.ast.push(.{
         .function = .{
-            .name   = name,
-            .params = params,
-            .body   = body,
+            .name        = name,
+            .params      = params,
+            .return_type = return_type,
+            .body        = body,
         },
     });
 }
@@ -262,6 +275,16 @@ fn function(self: *Self) anyerror!usize {
 fn parameterList(self: *Self) anyerror!usize {
 
     const name = try self.expect(.take, .identifier);
+    _ = try self.expect(.take, .@":");
+    const type_token = try self.expectOneOf(
+        .take,
+        &[_] Token.Kind { .@"int", .@"bool", }
+    );
+    const type_: Type = switch (type_token.kind) {
+        .@"int" => .integer,
+        .@"bool" => .boolean,
+        else => unreachable, // invalid type identifier
+    };
     const delimiter = try self.expectOneOf(.take, &[_]Token.Kind { .@",", .@")", });
 
     const next = switch (delimiter.kind) {
@@ -273,6 +296,7 @@ fn parameterList(self: *Self) anyerror!usize {
     return self.ast.push(.{
         .parameter_list = .{
             .name = name,
+            .type_ = type_,
             .next = next,
         },
     });
@@ -367,14 +391,25 @@ fn declaration(self: *Self) anyerror!usize {
 
     _ = try self.expect(.take, .@"let");
     const name = try self.expect(.take, .identifier);
+    _ = try self.expect(.take, .@":");
+    const type_token = try self.expectOneOf(
+        .take,
+        &[_] Token.Kind { .@"int", .@"bool", }
+    );
+    const type_: Type = switch (type_token.kind) {
+        .@"int" => .integer,
+        .@"bool" => .boolean,
+        else => unreachable, // invalid type identifier
+    };
     _ = try self.expect(.take, .@"=");
     const expr = try self.expression();
     _ = try self.expect(.take, .@";");
 
     return self.ast.push(.{
         .declaration = .{
-            .name = name,
-            .expr = expr,
+            .name  = name,
+            .type_ = type_,
+            .expr  = expr,
         },
     });
 }
@@ -549,6 +584,8 @@ fn factor(self: *Self) anyerror!usize {
             .@"-",
             .@"!",
             .@"(",
+            .@"true",
+            .@"false",
             .identifier,
             .literal,
         }
@@ -561,7 +598,20 @@ fn factor(self: *Self) anyerror!usize {
         .literal => literal: {
             _ = try self.lexer.take(); // literal
             break :literal try self.ast.push(.{
-                .constant = .{ .token = begin, },
+                .constant = .{
+                    .type_ = .integer,
+                    .token = begin,
+                },
+            });
+        },
+
+        .@"true", .@"false" => boolean: {
+            _ = try self.lexer.take(); // true / false
+            break :boolean try self.ast.push(.{
+                .constant = .{
+                    .type_ = .boolean,
+                    .token = begin,
+                }
             });
         },
 

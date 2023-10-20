@@ -19,6 +19,10 @@ const keywords = std.ComptimeStringMap(
         .{ "continue", .@"continue", },
         .{ "and",      .@"and",      },
         .{ "or",       .@"or",       },
+        .{ "int",      .@"int",      },
+        .{ "bool",     .@"bool",     },
+        .{ "true",     .@"true",     },
+        .{ "false",    .@"false",    },
     }
 );
 
@@ -98,6 +102,7 @@ pub fn take(self: *Self) !?Token {
     // Single operator
     const single: ?Token.Kind = switch (curr) {
         ';' => .@";",
+        ':' => .@":",
         ',' => .@",",
         '{' => .@"{",
         '}' => .@"}",

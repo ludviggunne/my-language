@@ -2,6 +2,7 @@
 const std = @import("std");
 const Self = @This();
 const Token = @import("Token.zig");
+const Type = @import("types.zig").Type;
 
 root: usize,
 nodes: std.ArrayList(Node),
@@ -18,21 +19,24 @@ pub const Node = union(enum) {
     },
 
     function: struct {
-        symbol: usize = undefined,
-        name:   Token,
-        params: ?usize, // may be empty
-        body:   usize,
+        symbol:      usize = undefined,
+        name:        Token,
+        return_type: Type,
+        params:      ?usize, // may be empty
+        body:        usize,
     },
 
     parameter_list: struct {
         symbol: usize = undefined,
         name:   Token,
+        type_:  Type,
         next:   ?usize,
     },
     
     declaration: struct {
         symbol: usize = undefined,
         name:   Token,
+        type_:   Type,
         expr:   usize,
     }, 
 
@@ -104,6 +108,7 @@ pub const Node = union(enum) {
 
     constant: struct {
         value: i64 = 0,
+        type_: Type,
         token: ?Token = null, // may not exist after constant folding
     },
 };

@@ -67,9 +67,25 @@ pub fn main() !u8 {
     };
     if (config.dump) try ast.dump(stdout, allocator);
 
+    // Symbol resolution
+    try stdout.print("Resolving symbols...\n", .{});
+    var symtab = try SymbolTable.init(&ast, allocator);
+    defer symtab.deinit();
+
+    symtab.resolve() catch {
+
+        for (symtab.errors.items) |err| {
+            try err.print(source, stdout);
+        }
+
+        return 1;
+    };
+
+    if (config.dump) try symtab.dump(stdout);
+
     // Typecheck
     try stdout.print("Type checking...\n", .{});
-    var type_checker = TypeChecker.init(&ast, allocator);
+    var type_checker = TypeChecker.init(&ast, &symtab, allocator);
     defer type_checker.deinit();
     type_checker.check() catch {
 
@@ -93,24 +109,6 @@ pub fn main() !u8 {
 
         return 1;
     };
-    
-    if (config.dump) try ast.dump(stdout, allocator);
-
-    // Symbol resolution
-    try stdout.print("Resolving symbols...\n", .{});
-    var symtab = try SymbolTable.init(&ast, allocator);
-    defer symtab.deinit();
-
-    symtab.resolve() catch {
-
-        for (symtab.errors.items) |err| {
-            try err.print(source, stdout);
-        }
-
-        return 1;
-    };
-
-    if (config.dump) try symtab.dump(stdout);
 
     // Codegen
     var output_file = cwd.createFile("./asm.S", .{}) catch {

@@ -143,8 +143,13 @@ fn foldNode(self: *Self, id: usize) !void {
         },
 
         // CONSTANT
-        .constant => |*v| v.value = std.fmt.parseInt(i64, v.token.?.where, 10) 
-            catch unreachable, // We validated the string in lexer
+        .constant => |*v| switch (v.token.?.kind) {
+            .literal => v.value = std.fmt.parseInt(i64, v.token.?.where, 10) 
+                catch unreachable, // string is validated during lexing
+            .@"true" => v.value = 1,
+            .@"false" => v.value = 0,
+            else => unreachable,
+        },
 
         // UNARY
         .unary => |*v| {
@@ -159,7 +164,7 @@ fn foldNode(self: *Self, id: usize) !void {
                     else => unreachable, // illegal unary operator
                 };
 
-                node.* = .{ .constant = .{ .value = value } };
+                node.* = .{ .constant = .{ .type_ = undefined, .value = value } };
             }
         },
 
@@ -215,7 +220,7 @@ fn foldNode(self: *Self, id: usize) !void {
                         },
                     };
 
-                    node.* = .{ .constant = .{ .value = value, }, };
+                    node.* = .{ .constant = .{ .type_ = undefined, .value = value, }, };
                 }
             }
         },

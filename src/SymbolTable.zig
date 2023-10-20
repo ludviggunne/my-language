@@ -4,11 +4,16 @@ const Self = @This();
 
 const Ast   = @import("Ast.zig");
 const Error = @import("Error.zig");
+const Type  = @import("types.zig").Type;
 
 const Symbol = struct {
     name: []const u8,
+    type_: Type,
     kind: union(enum) {
         function: struct {
+            // node index of parameter list
+            //  so we can check types
+            params:      ?usize,
             param_count: usize,
             local_count: usize,
         },
@@ -218,7 +223,14 @@ fn resolveNode(self: *Self, id: usize) !void {
             v.symbol = try self.declare(
                 .{ 
                     .name = v.name.where,
-                    .kind = .{ .function = undefined, },
+                    .type_ = v.return_type,
+                    .kind = .{
+                        .function = .{
+                            .params      = v.params,
+                            .param_count = undefined,
+                            .local_count = undefined,
+                        },
+                    },
                 },
             );
             try self.pushScope();
@@ -248,8 +260,9 @@ fn resolveNode(self: *Self, id: usize) !void {
 
         .parameter_list => |*v| {
             v.symbol = try self.declare(.{
-                .name = v.name.where,
-                .kind = .{ .variable = .{ .param = self.local_counter }, },
+                .name  = v.name.where,
+                .type_ = v.type_,
+                .kind  = .{ .variable = .{ .param = self.local_counter }, },
             });
             self.local_counter += 1;
             if (v.next) |next| {
@@ -276,6 +289,7 @@ fn resolveNode(self: *Self, id: usize) !void {
             try self.resolveNode(v.expr);
             v.symbol = try self.declare(.{
                 .name = v.name.where,
+                .type_ = v.type_,
                 .kind = .{
                     .variable = .{ .local = self.local_counter, },
                 },
@@ -286,6 +300,7 @@ fn resolveNode(self: *Self, id: usize) !void {
         .assignment => |*v| {
             v.symbol = try self.reference(.{
                 .name = v.name.where,
+                .type_ = undefined,
                 .kind = .{ .variable = undefined, },
             });
             try self.resolveNode(v.expr);
@@ -298,8 +313,10 @@ fn resolveNode(self: *Self, id: usize) !void {
             }
             v.symbol = try self.reference(.{
                 .name = v.name.where,
+                .type_ = undefined,
                 .kind = .{
                     .function = .{
+                        .params      = undefined,
                         .param_count = self.arg_counter,
                         .local_count = undefined,
                     },
@@ -333,6 +350,7 @@ fn resolveNode(self: *Self, id: usize) !void {
         .variable => |*v| {
             v.symbol = try self.reference(.{
                 .name = v.name.where,
+                .type_ = undefined,
                 .kind = .{ .variable = undefined, },
             });
         },

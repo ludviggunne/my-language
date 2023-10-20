@@ -40,6 +40,10 @@ pub const Kind = enum {
     @"print",
     @"and",
     @"or",
+    @"int",
+    @"bool",
+    @"true",
+    @"false",
 
     identifier,
     literal,
