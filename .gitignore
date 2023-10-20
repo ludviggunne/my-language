@@ -1,4 +1,5 @@
 zig-out/
 zig-cache/
-output.S
 program
+asm.S
+lc

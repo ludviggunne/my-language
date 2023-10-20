@@ -9,10 +9,14 @@ integer.  Parameter count is limited to 4.
 * gcc for assembling and linking (printf)
 * Low expectations
 
+## Building
+Run `zig build`
+
 ## Usage
-1. Write the program in **program.l**
-2. Run make
-3. Run **./program**
+    `./lc source.l -o program`
+
+## Options
+* **-d**: Print lexer output, AST & symbol table
 
 ## Features
 * Rudimentary type checking (bool/int)
