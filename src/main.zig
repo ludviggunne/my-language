@@ -8,10 +8,9 @@ const TypeChecker    = @import("TypeChecker.zig");
 const ConstantFolder = @import("ConstantFolder.zig");
 const SymbolTable    = @import("SymbolTable.zig");
 const CodeGen        = @import("CodeGen.zig");
+const Config         = @import("Config.zig");
 
 pub fn main() !u8 {
-
-    const dump = true;
 
     const stdout = std.io.getStdOut().writer();
 
@@ -19,8 +18,25 @@ pub fn main() !u8 {
     var allocator = gpa.allocator();
     defer _ = gpa.deinit();
 
+    const args = try std.process.argsAlloc(allocator);
+    defer std.process.argsFree(allocator, args);
+
+    var config = Config.init(allocator);
+    defer config.deinit();
+    config.parse(args) catch {
+
+        for (config.errors.items) |err| {
+            try err.print("", stdout);
+        }
+
+        return 1;
+    };
+
     const cwd = std.fs.cwd();
-    const file = try cwd.openFile("./program.l", .{});
+    const file = cwd.openFile(config.input, .{}) catch {
+        try stdout.print("Error: Couldn't open source file {0s}\n", .{ config.input, });
+        return 1;
+    };
     const source = try file.readToEndAlloc(allocator, 2048);
     defer allocator.free(source);
     file.close();
@@ -28,7 +44,7 @@ pub fn main() !u8 {
     var lexer = Lexer.init(source, allocator); 
     defer lexer.deinit();
 
-    if (dump) {
+    if (config.dump) {
         try lexer.dump(stdout);
         lexer.reset();
     }
@@ -37,6 +53,7 @@ pub fn main() !u8 {
     defer ast.deinit();
 
     // Parse
+    try stdout.print("Parsing...\n", .{});
     var parser = Parser.init(&lexer, &ast, allocator);
     defer parser.deinit();
 
@@ -48,9 +65,10 @@ pub fn main() !u8 {
 
         return 1;
     };
-    if (dump) try ast.dump(stdout, allocator);
+    if (config.dump) try ast.dump(stdout, allocator);
 
     // Typecheck
+    try stdout.print("Type checking...\n", .{});
     var type_checker = TypeChecker.init(&ast, allocator);
     defer type_checker.deinit();
     type_checker.check() catch {
@@ -63,6 +81,7 @@ pub fn main() !u8 {
     };
 
     // Constant folding
+    try stdout.print("Folding constant expressions...\n", .{});
     var folder = ConstantFolder.init(&ast, allocator);
     defer folder.deinit();
 
@@ -75,9 +94,10 @@ pub fn main() !u8 {
         return 1;
     };
     
-    if (dump) try ast.dump(stdout, allocator);
+    if (config.dump) try ast.dump(stdout, allocator);
 
     // Symbol resolution
+    try stdout.print("Resolving symbols...\n", .{});
     var symtab = try SymbolTable.init(&ast, allocator);
     defer symtab.deinit();
 
@@ -90,12 +110,16 @@ pub fn main() !u8 {
         return 1;
     };
 
-    if (dump) try symtab.dump(stdout);
+    if (config.dump) try symtab.dump(stdout);
 
     // Codegen
-    var output_file = try cwd.createFile("./output.S", .{});
+    var output_file = cwd.createFile("./asm.S", .{}) catch {
+        try stdout.print("Error: Couldn't create intermediate assembly file\n", .{});
+        return 1;
+    };
     var output = output_file.writer();
 
+    try stdout.print("Generating assembly...\n", .{});
     var codegen = CodeGen.init(&ast, &symtab, allocator);
     defer codegen.deinit();
     codegen.generate(output) catch {
@@ -106,6 +130,13 @@ pub fn main() !u8 {
 
         return 1;
     };
+
+    try stdout.print("Invoking gcc...\n", .{});
+    const gcc_args = [_][] const u8 { "gcc", "./asm.S", "-o", config.output, };
+    var process = std.process.Child.init(&gcc_args, allocator);
+    try process.spawn();
+
+    try stdout.print("Compilation complete!\n", .{});
 
     return 0;
 }

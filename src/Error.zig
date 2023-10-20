@@ -11,6 +11,7 @@ pub const Reference = struct {
 };
 
 stage: enum {
+    command_line_parsing,
     lexing,
     parsing,
     typechecking,
@@ -20,6 +21,10 @@ stage: enum {
 },
 where: ?[]const u8 = null,
 kind: union(enum) {
+    // Command line parsing
+    invalid_option: [:0]const u8,
+    expected_arg: [:0]const u8,
+    no_input_file,
     // Lexing
     unexpected_character: []const u8,
     unexpected_token: struct {
@@ -63,6 +68,16 @@ pub fn print(self: *const Self, source: []const u8, writer: anytype) !void {
     try writer.print("Error during {s}: ", .{ @tagName(self.stage), });
 
     switch (self.kind) {
+
+        .invalid_option => |v| {
+            try writer.print("Invalid option: {s}\n", .{ v, });
+        },
+
+        .no_input_file => try writer.print("No input file\n", .{}),
+
+        .expected_arg => |v|
+            try writer.print("Expected argument after option {0s}\n", .{ v, }),
+
         .unexpected_token => |v| {
             try writer.print(
                 "Unexpected token {s}: expected {s}\n",
