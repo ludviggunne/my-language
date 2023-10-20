@@ -437,68 +437,64 @@ fn whileStatement(self: *Self) anyerror!usize {
 
 fn expression(self: *Self) anyerror!usize {
     
-    const left = try self.sum();
-    const maybe_operator = try self.matchOneOfOrNull(.take,
-        &[_] Token.Kind {
-            .@"<",
-            .@"<=",
-            .@"==",
-            .@">=",
-            .@">",
-            .@"!=",
-        }
-    );
-
-    if (maybe_operator) |operator| {
-
+    var left = try self.sum();
+    while (try self.matchOneOfOrNull(.peek,
+        &[_] Token.Kind { .@"<", .@"<=", .@"==", .@">=", .@">", .@"!=", })) |operator|
+    {
+        _ = try self.lexer.take(); // operator
         const right = try self.sum();
-        return self.ast.push(.{
+        left = try self.ast.push(.{
             .binary = .{
-                .left = left,
-                .right = right,
+                .left     = left,
+                .right    = right,
                 .operator = operator,
             },
         });
-    } else return left;
+    }
+
+    return left;
 }
 
 fn sum(self: *Self) anyerror!usize {
 
-    const left = try self.product();
-    const maybe_operator = try self.matchOneOfOrNull(.take, &[_] Token.Kind { .@"+", .@"-", });
-    
-    if (maybe_operator) |operator| {
+    var left = try self.product();
 
-        const right = try self.sum();
-        return self.ast.push(.{
+    while (try self.matchOneOfOrNull(.peek,
+        &[_] Token.Kind { .@"+", .@"-", })) |operator|
+    {
+        _ = try self.lexer.take(); // operator
+        const right = try self.product();
+        left = try self.ast.push(.{
             .binary = .{
-                .left = left,
-                .right = right,
+                .left     = left,
+                .right    = right,
                 .operator = operator,
             },
         });
-    } else return left;
+    }
+
+    return left;
 }
 
 fn product(self: *Self) anyerror!usize {
 
-    const left = try self.factor();
-    const maybe_operator = try self.matchOneOfOrNull(
-        .take,
-        &[_] Token.Kind { .@"*", .@"/", .@"%", }
-    );
-    
-    if (maybe_operator) |operator| {
+    var left = try self.factor();
 
-        const right = try self.product();
-        return self.ast.push(.{
+    while (try self.matchOneOfOrNull(.peek,
+            &[_] Token.Kind { .@"*", .@"/", .@"%", })) |operator|
+    {
+        _ = try self.lexer.take(); // operator
+        const right = try self.factor();
+        left = try self.ast.push(.{
             .binary = .{
-                .left = left,
-                .right = right,
+                .left     = left,
+                .right    = right,
                 .operator = operator,
             },
         });
-    } else return left;
+    }
+
+    return left;
 }
 
 fn factor(self: *Self) anyerror!usize {
