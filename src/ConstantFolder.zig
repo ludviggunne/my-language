@@ -199,6 +199,8 @@ fn foldNode(self: *Self, id: usize) !void {
                             }
                             break :mod @mod(left, right);
                         },
+                        .@"and" => left & right,
+                        .@"or"  => left | right,
                         else => comparison: {
                             const as_bool = switch (v.operator.kind) {
                                 .@"<"  => left <  right,

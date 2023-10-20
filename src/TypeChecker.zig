@@ -101,6 +101,10 @@ fn checkNode(self: *Self, id: usize) !Type {
                 .@"==",
                 .@"!=" => return .boolean,
 
+                // Logical operator
+                .@"and",
+                .@"or" => .boolean,
+
                 // Arithmetic
                 .@"+",
                 .@"-",
@@ -113,7 +117,7 @@ fn checkNode(self: *Self, id: usize) !Type {
                 .@"<=",
                 .@">",
                 .@">=" => {
-                    if (operands == .boolean) {
+                    if (operands != .integer) {
                         try self.pushError(.{
                             .stage = .typechecking,
                             .where = v.operator.where,

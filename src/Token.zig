@@ -38,6 +38,8 @@ pub const Kind = enum {
     @"fn",
     @"return",
     @"print",
+    @"and",
+    @"or",
 
     identifier,
     literal,

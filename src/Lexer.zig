@@ -17,6 +17,8 @@ const keywords = std.ComptimeStringMap(
         .{ "break",    .@"break",    },
         .{ "print",    .@"print",    },
         .{ "continue", .@"continue", },
+        .{ "and",      .@"and",      },
+        .{ "or",       .@"or",       },
     }
 );
 

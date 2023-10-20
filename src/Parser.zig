@@ -437,9 +437,52 @@ fn whileStatement(self: *Self) anyerror!usize {
 
 fn expression(self: *Self) anyerror!usize {
     
-    var left = try self.sum();
+    var left = try self.equality();
+
     while (try self.matchOneOfOrNull(.peek,
-        &[_] Token.Kind { .@"<", .@"<=", .@"==", .@">=", .@">", .@"!=", })) |operator|
+        &[_] Token.Kind { .@"and", .@"or", })) |operator|
+    {
+        _ = try self.lexer.take(); // operator
+        const right = try self.equality();
+        left = try self.ast.push(.{
+            .binary = .{
+                .left     = left,
+                .right    = right,
+                .operator = operator,
+            },
+        });
+    }
+
+    return left;
+}
+
+fn equality(self: *Self) anyerror!usize {
+
+    var left = try self.comparison();
+
+    while (try self.matchOneOfOrNull(.peek,
+        &[_] Token.Kind { .@"==", .@"!=", })) |operator|
+    {
+        _ = try self.lexer.take(); // operator
+        const right = try self.comparison();
+        left = try self.ast.push(.{
+            .binary = .{
+                .left     = left,
+                .right    = right,
+                .operator = operator,
+            },
+        });
+    }
+
+    return left;
+}
+
+fn comparison(self: *Self) anyerror!usize {
+
+    var left = try self.sum();
+
+    while (try self.matchOneOfOrNull(.peek,
+        &[_] Token.Kind { .@"<", .@"<=", .@">", .@">=", })) |operator|
     {
         _ = try self.lexer.take(); // operator
         const right = try self.sum();

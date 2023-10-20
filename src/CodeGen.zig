@@ -364,8 +364,41 @@ fn binary(self: *Self, node: anytype, writer: anytype) anyerror!Register {
         .@">=",
         .@"!=" => self.comparison(node, writer),
 
+        .@"and",
+        .@"or" => self.logical(node, writer),
+
         else => unreachable, // illegal binary operator
     };
+}
+
+fn logical(self: *Self, node: anytype, writer: anytype) anyerror!Register {
+
+    const left = try self.generateNode(node.left, writer);
+    const right = try self.generateNode(node.right, writer);
+
+    const result = left;
+    const discard = right;
+    
+    defer self.pool.free(discard);
+
+    switch (node.operator.kind) {
+
+        .@"and" => try writer.print(
+            \\    andq     %{1s}, %{0s}
+            \\
+            , .{ @tagName(left), @tagName(right), }
+        ),
+
+        .@"or" => try writer.print(
+            \\    orq      %{1s}, %{0s}
+            \\
+            , .{ @tagName(left), @tagName(right), }
+        ),
+
+        else => unreachable, // illegal logical operator
+    }
+
+    return result;
 }
 
 fn arithmetic(self: *Self, node: anytype, writer: anytype) anyerror!Register {
