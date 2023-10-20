@@ -13,7 +13,7 @@ integer.  Parameter count is limited to 4.
 Run `zig build`
 
 ## Usage
-    `./lc source.l -o program`
+`./lc source.l -o program`
 
 ## Options
 * **-d**: Print lexer output, AST & symbol table
