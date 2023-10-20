@@ -1,5 +1,8 @@
 zig-out/
 zig-cache/
+
 program
 asm.S
 lc
+Makefile
+.local.vimrc
