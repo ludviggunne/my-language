@@ -15,6 +15,7 @@ Run `zig build`
 
 ## Options
 * **-d**: Print lexer output, AST & symbol table
+* **-s**: Save assembly output (asm.S)
 
 ## Basics
 ### Variable declarations

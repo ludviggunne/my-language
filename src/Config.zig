@@ -5,10 +5,11 @@ const std = @import("std");
 
 const Error = @import("Error.zig");
 
-input:  []const u8,
-output: []const u8,
-dump:   bool,
-errors: std.ArrayList(Error),
+input:           []const u8,
+output:          []const u8,
+dump:            bool,
+remove_assembly: bool,
+errors:          std.ArrayList(Error),
 
 pub fn init(allocator: std.mem.Allocator) Self {
 
@@ -16,6 +17,7 @@ pub fn init(allocator: std.mem.Allocator) Self {
         .input = "UNSPECIFIED",
         .output = "program",
         .dump = false,
+        .remove_assembly = true,
         .errors = std.ArrayList(Error).init(allocator),
     };
 }
@@ -63,6 +65,13 @@ pub fn parse(self: *Self, args: [][:0] u8,) !void {
         if (std.mem.eql(u8, first, "-d")) {
 
             self.dump = true;
+            args_slice = args_slice[1..];
+            continue;
+        }
+
+        if (std.mem.eql(u8, first, "-s")) {
+
+            self.remove_assembly = false;
             args_slice = args_slice[1..];
             continue;
         }
