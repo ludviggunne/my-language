@@ -42,7 +42,7 @@ if x == 70 {
 ```
 
 ## Printing to stdout
-There is a specific `print` that prints it's argument (bools are printed as 1/0).
+There is a specific `print` statement that prints it's argument (bools are printed as 1/0).
 ```
 print x + y;
 ```
