@@ -6,3 +6,4 @@ asm.S
 lc
 Makefile
 .local.vimrc
+test.l
