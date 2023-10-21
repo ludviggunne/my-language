@@ -53,7 +53,6 @@ pub fn main() !u8 {
     defer ast.deinit();
 
     // Parse
-    try stdout.print("Parsing...\n", .{});
     var parser = Parser.init(&lexer, &ast, allocator);
     defer parser.deinit();
 
@@ -68,7 +67,6 @@ pub fn main() !u8 {
     if (config.dump) try ast.dump(stdout, allocator);
 
     // Symbol resolution
-    try stdout.print("Resolving symbols...\n", .{});
     var symtab = try SymbolTable.init(&ast, allocator);
     defer symtab.deinit();
 
@@ -84,7 +82,6 @@ pub fn main() !u8 {
     if (config.dump) try symtab.dump(stdout);
 
     // Typecheck
-    try stdout.print("Type checking...\n", .{});
     var type_checker = TypeChecker.init(&ast, &symtab, allocator);
     defer type_checker.deinit();
     type_checker.check() catch {
@@ -97,7 +94,6 @@ pub fn main() !u8 {
     };
 
     // Constant folding
-    try stdout.print("Folding constant expressions...\n", .{});
     var folder = ConstantFolder.init(&ast, allocator);
     defer folder.deinit();
 
@@ -117,7 +113,6 @@ pub fn main() !u8 {
     };
     var output = output_file.writer();
 
-    try stdout.print("Generating assembly...\n", .{});
     var codegen = CodeGen.init(&ast, &symtab, allocator);
     defer codegen.deinit();
     codegen.generate(output) catch {
@@ -130,7 +125,6 @@ pub fn main() !u8 {
     };
 
     // Invoke gcc
-    try stdout.print("Invoking gcc...\n", .{});
     const gcc_args = [_][] const u8 { "gcc", "./asm.S", "-o", config.output, };
     var gcc = std.process.Child.init(&gcc_args, allocator);
     try gcc.spawn();
@@ -143,8 +137,6 @@ pub fn main() !u8 {
         try rm.spawn();
         _ = try rm.wait();
     }
-
-    try stdout.print("Compilation complete!\n", .{});
 
     return 0;
 }

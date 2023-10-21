@@ -8,6 +8,7 @@ pub const Reference = struct {
     line:        []const u8,
     line_number: usize,
     line_index:  usize,
+    length:      usize,
 };
 
 stage: enum {
@@ -90,7 +91,7 @@ pub fn print(self: *const Self, source: []const u8, writer: anytype) !void {
 
         .unexpected_token => |v| {
             try writer.print(
-                "Unexpected token {s}: expected {s}\n",
+                "Unexpected token \"{s}\": expected \"{s}\"\n",
                 .{
                     @tagName(v.found),
                     @tagName(v.expected),
@@ -100,13 +101,15 @@ pub fn print(self: *const Self, source: []const u8, writer: anytype) !void {
         },
 
         .unexpected_token_oneof => |v| {
-            try writer.print("Unexpected token {s}: expected one of ", .{ @tagName(v.found), });
+            try writer.print("Unexpected token \"{s}\": expected one of ", .{ @tagName(v.found), });
             for (v.expected) |expected| {
-                try writer.print("{s}, ", .{ @tagName(expected), });
+                try writer.print("\"{s}\", ", .{ @tagName(expected), });
             }
             try writer.print("\n", .{});
             try printReference(self.where.?, source, writer);
         },
+
+        .unexpected_eoi => try writer.print("Unexpected end of input\n", .{}),
 
         .binary_mismatch => |v| {
             try writer.print(
@@ -233,14 +236,15 @@ pub fn reference(where: []const u8, source: []const u8) Reference {
         .line        = line,
         .line_number = line_number,
         .line_index  = line_index,
+        .length      = where.len,
     };
 }
 
 pub fn printReference(where: []const u8, source: []const u8, writer: anytype) !void {
 
     const ref = reference(where, source);
-    try writer.print("Line {d}: {s}\n", .{ ref.line_number, ref.line, }); 
-    try writer.print("        ", .{});
+    try writer.print("Line {d}:\n{s}\n", .{ ref.line_number, ref.line, }); 
     for (0..ref.line_index) |_| try writer.print(" ", .{});
-    try writer.print("^\n", .{});
+    for (0..ref.length) |_| try writer.print("~", .{});
+    try writer.print("\n", .{});
 }

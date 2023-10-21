@@ -378,7 +378,11 @@ pub fn dump(self: *Self, writer: anytype) !void {
 
     try writer.print("---------- Symbol Table Dump ----------\n", .{});
     for (self.symbols.items, 0..) |symbol, i| {
-        try writer.print("Symbol {s} ({d}): ", .{ symbol.name, i, });
+        const indent = switch (symbol.kind) {
+            .function => "",
+            .variable => "    ",
+        };
+        try writer.print("{s}Symbol {s} ({d}): ", .{ indent, symbol.name, i, });
         switch (symbol.kind) {
             .function => |v| try writer.print(
                 "function with {d} parameter(s)\n",
