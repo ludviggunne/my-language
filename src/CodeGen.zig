@@ -100,6 +100,7 @@ fn generateNode(self: *Self, id: usize, writer: anytype) anyerror!Register {
         .print_statement    => |v| self.printStatement(v, writer),
         .variable           => |v| self.variable(v, writer),
         .constant           => |v| self.constant(v, writer),
+        .parenthesized      => |v| self.generateNode(v.content, writer),
     };
 }
 

@@ -212,6 +212,8 @@ fn resolveNode(self: *Self, id: usize) !void {
         .continue_statement,
         .constant  => {},
 
+        .parenthesized => |v| try self.resolveNode(v.content),
+
         .toplevel_list => |*v| {
             try self.resolveNode(v.decl);
             if (v.next) |next| {

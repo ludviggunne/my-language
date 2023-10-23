@@ -111,6 +111,10 @@ pub const Node = union(enum) {
         type_: Type,
         token: ?Token = null, // may not exist after constant folding
     },
+
+    parenthesized: struct {
+        content: usize,
+    },
 };
 
 pub fn init(allocator: std.mem.Allocator) Self {
@@ -147,6 +151,16 @@ fn dumpNode(
     bars: *std.ArrayList(bool)
 ) !void {
 
+    const node = &self.nodes.items[id];
+    // Ignore parenthesis
+    switch (node.*) {
+        .parenthesized => |v| {
+            try self.dumpNode(v.content, writer, i, bars);
+            return;
+        },
+        else => {},
+    }
+
     if (i > 0) {
         for (0..i - 1) |j| {
             if (bars.items[j]) {
@@ -161,7 +175,6 @@ fn dumpNode(
     try setBar(bars, i);
     defer unsetBar(bars, i);
 
-    const node = &self.nodes.items[id];
     switch (node.*) {
 
         .empty => try writer.print("empty\n", .{}),
@@ -325,6 +338,8 @@ fn dumpNode(
                 try writer.print("constant ({d})\n", .{ v.value, });
             }
         },
+
+        .parenthesized => unreachable,
     }
 
 }

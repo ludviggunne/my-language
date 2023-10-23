@@ -621,7 +621,11 @@ fn factor(self: *Self) anyerror!usize {
             _ = try self.lexer.take(); // (
             const expr = try self.expression();
             _ = try self.expect(.take, .@")");
-            break :surrounded expr;
+            break :surrounded self.ast.push(.{
+                .parenthesized = .{
+                    .content = expr,
+                },
+            });
         },
 
         else => unreachable,

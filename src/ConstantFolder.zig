@@ -53,6 +53,8 @@ fn foldNode(self: *Self, id: usize) !void {
         .parameter_list,
         .variable => {},
 
+        .parenthesized => |v| try self.foldNode(v.content),
+
         // TOPLEVEL
         .toplevel_list => |v| {
             try self.foldNode(v.decl);

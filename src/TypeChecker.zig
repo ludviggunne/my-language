@@ -45,6 +45,8 @@ fn checkNode(self: *Self, id: usize) !Type {
         .continue_statement,
         .parameter_list, => return .none,
 
+        .parenthesized => |v| return self.checkNode(v.content),
+
         .constant => |v| return v.type_,
 
         .variable => |v|
