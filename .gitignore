@@ -4,6 +4,7 @@ zig-cache/
 program
 asm.S
 lc
+lfmt
 Makefile
 .local.vimrc
 test.l
