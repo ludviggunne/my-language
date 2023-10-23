@@ -42,10 +42,16 @@ if x == 70 {
 }
 ```
 
-## Printing to stdout
+### Printing to stdout
 There is a specific `print` statement that prints it's argument (bools are printed as 1/0).
 ```
 print x + y;
+```
+
+## Formatting
+The build script also builds a simple code formatter, which can be used like so:
+```
+cat program.l | ./lfmt > tmp && mv tmp program.l
 ```
 
 ## Compiler features
