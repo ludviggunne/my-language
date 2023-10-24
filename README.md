@@ -25,6 +25,11 @@ The only currently supported types are 64-bit signed integers and booleans
 let x: int = 69;
 let nice: bool = true;
 ```
+Types of variables may also be inferred:
+```
+let x = 0;    # integer
+let y = true; # boolean
+```
 
 ### Functions
 ```
