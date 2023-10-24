@@ -390,11 +390,14 @@ pub fn dump(self: *Self, writer: anytype) !void {
                 "function with {d} parameter(s)\n",
                 .{ v.param_count, }
             ),
-            .variable => |v| switch (v) {
-                .param  => |u| try writer.print("param ({d})\n", .{ u, }),
-                .local  => |u| try writer.print("local ({d})\n", .{ u, }),
-                .global => try writer.print("global\n", .{}),
-            }
+            .variable => |v| {
+                switch (v) {
+                    .param  => |u| try writer.print("param ({d})", .{ u, }),
+                    .local  => |u| try writer.print("local ({d})", .{ u, }),
+                    .global => try writer.print("global", .{}),
+                }
+                try writer.print(", type: {0s}\n", .{ @tagName(symbol.type_), });
+            },
         }
     } 
 }

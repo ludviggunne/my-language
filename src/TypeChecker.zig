@@ -196,7 +196,9 @@ fn checkNode(self: *Self, id: usize) !Type {
             const expr = try self.checkNode(v.expr);
             const expected = self.symtab.symbols.items[v.symbol].type_;
 
-            if (expr != expected) {
+            if (expected == .none) {
+                self.symtab.symbols.items[v.symbol].type_ = expr;
+            } else if (expr != expected) {
                 try self.pushError(.{
                     .stage = .typechecking,
                     .where = v.name.where,

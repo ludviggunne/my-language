@@ -391,16 +391,29 @@ fn declaration(self: *Self) anyerror!usize {
 
     _ = try self.expect(.take, .@"let");
     const name = try self.expect(.take, .identifier);
-    _ = try self.expect(.take, .@":");
-    const type_token = try self.expectOneOf(
-        .take,
-        &[_] Token.Kind { .@"int", .@"bool", }
-    );
-    const type_: Type = switch (type_token.kind) {
-        .@"int" => .integer,
-        .@"bool" => .boolean,
-        else => unreachable, // invalid type identifier
-    };
+
+    var type_: Type = undefined;
+
+    if (try self.matchOrNull(.peek, .@":")) |_| {
+
+        // Type annotation
+        _ = try self.lexer.take();
+
+        const type_token = try self.expectOneOf(
+            .take,
+            &[_] Token.Kind { .@"int", .@"bool", }
+        );
+
+        type_ = switch (type_token.kind) {
+            .@"int" => .integer,
+            .@"bool" => .boolean,
+            else => unreachable, // invalid type identifier
+        };
+    } else {
+
+        type_ = .none;
+    }
+
     _ = try self.expect(.take, .@"=");
     const expr = try self.expression();
     _ = try self.expect(.take, .@";");

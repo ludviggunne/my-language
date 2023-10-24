@@ -79,8 +79,6 @@ pub fn main() !u8 {
         return 1;
     };
 
-    if (config.dump) try symtab.dump(stdout);
-
     // Typecheck
     var type_checker = TypeChecker.init(&ast, &symtab, allocator);
     defer type_checker.deinit();
@@ -92,6 +90,8 @@ pub fn main() !u8 {
 
         return 1;
     };
+
+    if (config.dump) try symtab.dump(stdout);
 
     // Constant folding
     var folder = ConstantFolder.init(&ast, allocator);
