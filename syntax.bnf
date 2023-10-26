@@ -7,24 +7,31 @@
 
 <TopLevel> ::= <FuncDecl>;
 
-<FuncDecl> ::= "fn" <IDENTIFIER> "(" <ParamList> ")" ":" <Type> "=" <Block> ";";
+<FuncDecl> ::=
+    "fn" <IDENTIFIER> "(" <ParamList> ")" ":" <Type> "=" <Block> ";" |
+    "fn" <IDENTIFIER> "(" ")" ":" <Type> "=" <Block> ";";
 
-<Block> ::= "{" (StatementList | Empty) "}";
+<Block> ::=
+    "{" StatementList "}" |
+    "{" "}";
 
 <StatementList> ::= 
     <Statement> <StatementList> | 
     <Statement>;
 
 <Statement> ::=
-    <Declaration>     |
-    <Assignment>      |
-    <IfStatement>     |
-    <WhileStatement>  |
-    <BreakStatement>  |
-    <ReturnStatement> |
+    <Declaration>       |
+    <Assignment>        |
+    <IfStatement>       |
+    <WhileStatement>    |
+    <BreakStatement>    |
+    <ContinueStatement> |
+    <ReturnStatement>   |
     <PrintStatement>;
 
-<Declaration> ::= "let" "IDENTIFIER": <Type> "=" <Expression> ";";
+<Declaration> ::=
+    "let" "IDENTIFIER": <Type> "=" <Expression> ";" |
+    "let" "IDENTIFIER" "=" <Expression> ";";
 
 <Type> ::= ("int" | "bool");
 
@@ -55,9 +62,13 @@
     ("-" | "!") <Factor> |
     "IDENTIFIER"         |
     "LITERAL"            |
+    "true"               |
+    "false"              |
     "(" <Expression> ")";
 
-<Call> ::= "IDENTIFIER" "(" <ArgList> ")";
+<Call> ::=
+    "IDENTIFIER" "(" <ArgList> ")" |
+    "IDENTIFIER" "(" ")";
 
 <ParamList> ::=
     <Param>  "," <ParamList> |
@@ -78,5 +89,7 @@
 <ReturnStatement> ::= "return" <Expression> ";";
 
 <BreakStatement> ::= "break" ";"
+
+<ContinueStatement> ::= "continue" ";"
 
 <PrintStatement> ::= "print" <Expression> ";"
