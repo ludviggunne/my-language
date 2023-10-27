@@ -203,7 +203,7 @@ pub fn print(self: *const Self, source: []const u8, writer: anytype) !void {
 }
 
 pub fn reference(where: []const u8, source: []const u8) Reference {
-    
+
     const source_raw: *const u8 = @ptrCast(source);
     const where_raw: *const u8 = @ptrCast(where);
     const offset = @intFromPtr(where_raw) - @intFromPtr(source_raw);
@@ -217,7 +217,7 @@ pub fn reference(where: []const u8, source: []const u8) Reference {
         if (i == offset) {
             search_begin = false;
         }
-        
+
         if (c == '\n') {
             if (search_begin) {
                 line_number += 1;
@@ -243,8 +243,21 @@ pub fn reference(where: []const u8, source: []const u8) Reference {
 pub fn printReference(where: []const u8, source: []const u8, writer: anytype) !void {
 
     const ref = reference(where, source);
-    try writer.print("Line {d}:\n{s}\n", .{ ref.line_number, ref.line, }); 
+    try writer.print("Line {d}:\n{s}\n", .{ ref.line_number, ref.line, });
     for (0..ref.line_index) |_| try writer.print(" ", .{});
     for (0..ref.length) |_| try writer.print("~", .{});
     try writer.print("\n", .{});
+}
+
+pub fn printErrorsAndExit(
+    stage: anytype,
+    source: []const u8,
+    writer: anytype
+) !noreturn {
+
+    for (stage.errors.items) |err| {
+        try err.print(source, writer);
+    }
+
+    std.process.exit(1);
 }

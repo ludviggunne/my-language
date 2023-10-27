@@ -9,6 +9,7 @@ const ConstantFolder = @import("ConstantFolder.zig");
 const SymbolTable    = @import("SymbolTable.zig");
 const CodeGen        = @import("CodeGen.zig");
 const Config         = @import("Config.zig");
+const Error          = @import("Error.zig");
 
 pub fn main() !u8 {
 
@@ -23,17 +24,11 @@ pub fn main() !u8 {
 
     var config = Config.init(allocator);
     defer config.deinit();
-    config.parse(args) catch {
-
-        for (config.errors.items) |err| {
-            try err.print("", stdout);
-        }
-
-        return 1;
-    };
+    config.parse(args)
+        catch try Error.printErrorsAndExit(&config, "", stdout);
 
     const cwd = std.fs.cwd();
-    const file = cwd.openFile(config.input, .{}) catch {
+    const file = cwd.openFile(config.input, .{}) catch try {
         try stdout.print("Error: Couldn't open source file {0s}\n", .{ config.input, });
         return 1;
     };
@@ -41,7 +36,7 @@ pub fn main() !u8 {
     defer allocator.free(source);
     file.close();
 
-    var lexer = Lexer.init(source, allocator); 
+    var lexer = Lexer.init(source, allocator);
     defer lexer.deinit();
 
     if (config.dump) {
@@ -56,40 +51,23 @@ pub fn main() !u8 {
     var parser = Parser.init(&lexer, &ast, allocator);
     defer parser.deinit();
 
-    parser.parse() catch {
-        
-        for (parser.errors.items) |*err| {
-            try err.print(source, stdout);
-        }
+    parser.parse()
+        catch try Error.printErrorsAndExit(&parser, source, stdout);
 
-        return 1;
-    };
     if (config.dump) try ast.dump(stdout, allocator);
 
     // Symbol resolution
     var symtab = try SymbolTable.init(&ast, allocator);
     defer symtab.deinit();
 
-    symtab.resolve() catch {
-
-        for (symtab.errors.items) |err| {
-            try err.print(source, stdout);
-        }
-
-        return 1;
-    };
+    symtab.resolve()
+        catch try Error.printErrorsAndExit(&symtab, source, stdout);
 
     // Typecheck
     var type_checker = TypeChecker.init(&ast, &symtab, allocator);
     defer type_checker.deinit();
-    type_checker.check() catch {
-
-        for (type_checker.errors.items) |err| {
-            try err.print(source, stdout);
-        }
-
-        return 1;
-    };
+    type_checker.check()
+        catch try Error.printErrorsAndExit(&type_checker, source, stdout);
 
     if (config.dump) try symtab.dump(stdout);
 
@@ -97,14 +75,8 @@ pub fn main() !u8 {
     var folder = ConstantFolder.init(&ast, allocator);
     defer folder.deinit();
 
-    folder.fold() catch {
-
-        for (folder.errors.items) |err| {
-            try err.print(source, stdout);
-        }
-
-        return 1;
-    };
+    folder.fold()
+        catch try Error.printErrorsAndExit(&folder, source, stdout);
 
     // Codegen
     var output_file = cwd.createFile("./asm.S", .{}) catch {
@@ -115,14 +87,8 @@ pub fn main() !u8 {
 
     var codegen = CodeGen.init(&ast, &symtab, allocator);
     defer codegen.deinit();
-    codegen.generate(output) catch {
-
-        for (codegen.errors.items) |err| {
-            try err.print(source, stdout);
-        }
-
-        return 1;
-    };
+    codegen.generate(output)
+        catch try Error.printErrorsAndExit(&codegen, source, stdout);
 
     // Invoke gcc
     const gcc_args = [_][] const u8 { "gcc", "./asm.S", "-o", config.output, };
