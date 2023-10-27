@@ -81,7 +81,10 @@ fn formatNode(self: *Self, id: usize, writer: anytype) !void {
             if (v.params) |params| {
                 try self.formatNode(params, writer);
             }
-            try writer.print("): {0s} = ", .{ typeStr(v.return_type), });
+            switch (v.return_type) {
+                .none => try writer.print(") = ", .{}),
+                else => try writer.print("): {0s} = ", .{ typeStr(v.return_type), }),
+            }
             try self.formatNode(v.body, writer);
             try newLine(writer);
         },
@@ -96,7 +99,10 @@ fn formatNode(self: *Self, id: usize, writer: anytype) !void {
 
         .declaration => |v| {
             try self.printIndent(writer);
-            try writer.print("let {0s}: {1s} = ", .{ v.name.where, typeStr(v.type_), });
+            switch (v.type_) {
+                .none => try writer.print("let {0s} = ", .{ v.name.where, }),
+                else => try writer.print("let {0s}: {1s} = ", .{ v.name.where, typeStr(v.type_), }),
+            }
             try self.formatNode(v.expr, writer);
             try writer.print(";", .{});
             try newLine(writer);
