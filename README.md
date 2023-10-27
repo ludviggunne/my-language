@@ -37,7 +37,8 @@ fn isEven(n: int): bool = {
     return n % 2 == 0;
 }
 ```
-Return types may also be inferred:
+Return types may also be inferred (if the function is recursive, it must have a
+return statement with a specified type **before** the first call to itself).
 ```
 fn add(x: int, y: int) = { return x + y; } # return integer
 ```
