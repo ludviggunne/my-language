@@ -173,7 +173,7 @@ fn checkNode(self: *Self, id: usize) !Type {
 
         // FUNCTION
         .function => |*v| {
-            self.return_type = &v.return_type;
+            self.return_type = &self.symtab.symbols.items[v.symbol].type_;
             self.returns = false;
             self.is_main = std.mem.eql(u8, "main", v.name.where);
             _ = try self.checkNode(v.body);
@@ -267,10 +267,14 @@ fn checkNode(self: *Self, id: usize) !Type {
 
             const returns_before = self.returns;
             _ = try self.checkNode(v.block);
+            const returns_in_if = self.returns;
+            var returns_in_else = false;
             if (v.else_block) |else_block| {
                 _ = try self.checkNode(else_block);
+                returns_in_else = self.returns;
             }
-            if (self.returns and !returns_before) {
+
+            if (!returns_before and (returns_in_if != returns_in_else)) {
                 self.returns = false;
             }
 
