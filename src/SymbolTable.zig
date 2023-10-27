@@ -86,14 +86,14 @@ fn pushError(self: *Self, err: Error) !void {
 fn pushScope(self: *Self) !void {
 
     self.current_scope += 1;
-    
+
     if (self.current_scope == self.scopes.items.len) {
         try self.scopes.append(std.StringHashMap(usize).init(self.allocator));
     }
 }
 
 fn popScope(self: *Self) void {
-    
+
     self.scopes.items[self.current_scope].clearRetainingCapacity();
     self.current_scope -= 1;
 }
@@ -117,7 +117,7 @@ fn setLocalCount(self: *Self, id: usize, count: usize) void {
 }
 
 fn pushSymbol(self: *Self, symbol: Symbol) !usize {
-    
+
     const index = self.symbols.items.len;
     try self.symbols.append(symbol);
     _ = try self.scopes.items[self.current_scope].put(symbol.name, index);
@@ -223,7 +223,7 @@ fn resolveNode(self: *Self, id: usize) !void {
 
         .function => |*v| {
             v.symbol = try self.declare(
-                .{ 
+                .{
                     .name = v.name.where,
                     .type_ = v.return_type,
                     .kind = .{
@@ -269,7 +269,7 @@ fn resolveNode(self: *Self, id: usize) !void {
             self.local_counter += 1;
             if (v.next) |next| {
                 try self.resolveNode(next);
-            }            
+            }
         },
 
         .block => |*v| {
@@ -386,10 +386,13 @@ pub fn dump(self: *Self, writer: anytype) !void {
         };
         try writer.print("{s}Symbol {s} ({d}): ", .{ indent, symbol.name, i, });
         switch (symbol.kind) {
-            .function => |v| try writer.print(
-                "function with {d} parameter(s)\n",
-                .{ v.param_count, }
-            ),
+            .function => |v| {
+                try writer.print(
+                    "function with {d} parameter(s)",
+                    .{ v.param_count, }
+                );
+                try writer.print(", return type: {0s}\n", .{ @tagName(symbol.type_), });
+            },
             .variable => |v| {
                 switch (v) {
                     .param  => |u| try writer.print("param ({d})", .{ u, }),
@@ -399,5 +402,5 @@ pub fn dump(self: *Self, writer: anytype) !void {
                 try writer.print(", type: {0s}\n", .{ @tagName(symbol.type_), });
             },
         }
-    } 
+    }
 }

@@ -32,13 +32,13 @@ pub const Node = union(enum) {
         type_:  Type,
         next:   ?usize,
     },
-    
+
     declaration: struct {
         symbol: usize = undefined,
         name:   Token,
         type_:  Type,
         expr:   usize,
-    }, 
+    },
 
     assignment: struct {
         symbol:   usize = undefined,
@@ -57,7 +57,7 @@ pub const Node = union(enum) {
         operator: Token,
         operand:  usize,
     },
-    
+
     call: struct {
         symbol: usize = undefined,
         name: Token,
@@ -297,14 +297,14 @@ fn dumpNode(
             if (v.expr) |expr| {
                 try self.dumpNode(expr, writer, i + 1, bars);
             }
-        }, 
+        },
 
         .print_statement => |v| {
             try writer.print("print\n", .{});
             try spacing(writer, i + 1, bars);
             unsetBar(bars, i);
             try self.dumpNode(v.expr, writer, i + 1, bars);
-        }, 
+        },
 
         .if_statement => |v| {
             const str = if (v.else_block) |_| "if-else\n" else "if\n";
@@ -359,15 +359,15 @@ fn spacing(writer: anytype, i: usize, bars: *std.ArrayList(bool)) !void {
 }
 
 fn setBar(bars: *std.ArrayList(bool), at: usize) !void {
-    
+
     while (at >= bars.items.len) {
-        try bars.append(false); 
+        try bars.append(false);
     }
 
     bars.items[at] = true;
 }
 
 fn unsetBar(bars: *std.ArrayList(bool), at: usize) void {
-    
+
     bars.items[at] = false;
 }

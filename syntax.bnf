@@ -1,22 +1,24 @@
 
 <Program> ::= <ToplevelList>;
 
-<ToplevelList> ::= 
-    <TopLevel> <ToplevelList> | 
+<ToplevelList> ::=
+    <TopLevel> <ToplevelList> |
     <TopLevel>;
 
 <TopLevel> ::= <FuncDecl>;
 
 <FuncDecl> ::=
     "fn" <IDENTIFIER> "(" <ParamList> ")" ":" <Type> "=" <Block> ";" |
-    "fn" <IDENTIFIER> "(" ")" ":" <Type> "=" <Block> ";";
+    "fn" <IDENTIFIER> "(" <ParamList> ")" "=" <Block> ";"            |
+    "fn" <IDENTIFIER> "(" ")" ":" <Type> "=" <Block> ";"             |
+    "fn" <IDENTIFIER> "(" ")" "=" <Block> ";";
 
 <Block> ::=
     "{" StatementList "}" |
     "{" "}";
 
-<StatementList> ::= 
-    <Statement> <StatementList> | 
+<StatementList> ::=
+    <Statement> <StatementList> |
     <Statement>;
 
 <Statement> ::=
@@ -43,9 +45,9 @@
 
 <Equality> ::=
     <Comparison> "==" <Comparison> |
-    <Comparison>; 
+    <Comparison>;
 
-<Comparison> ::= 
+<Comparison> ::=
     <Sum> ("<" | "<=" | "==" | ">=" | ">" | "!=") <Sum> |
     <Sum>;
 

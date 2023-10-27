@@ -9,7 +9,7 @@ const Type        = @import("types.zig").Type;
 ast: *Ast,
 symtab: *SymbolTable,
 errors: std.ArrayList(Error),
-return_type: Type,
+return_type: *Type,
 param_index: usize,
 
 pub fn init(ast: *Ast, symtab: *SymbolTable, allocator: std.mem.Allocator) Self {
@@ -17,7 +17,7 @@ pub fn init(ast: *Ast, symtab: *SymbolTable, allocator: std.mem.Allocator) Self 
         .ast    = ast,
         .symtab = symtab,
         .errors = std.ArrayList(Error).init(allocator),
-        .return_type = .none,
+        .return_type = undefined,
         .param_index = 0,
     };
 }
@@ -27,7 +27,7 @@ pub fn deinit(self: *Self) void {
 }
 
 pub fn check(self: *Self) !void {
-    
+
     _ = try self.checkNode(self.ast.root);
     if (self.errors.items.len > 0) {
         return error.TypeError;
@@ -39,7 +39,7 @@ fn checkNode(self: *Self, id: usize) !Type {
     const node = &self.ast.nodes.items[id];
 
     switch (node.*) {
-        
+
         .empty,
         .break_statement,
         .continue_statement,
@@ -66,7 +66,7 @@ fn checkNode(self: *Self, id: usize) !Type {
                 try self.pushError(.{
                     .stage = .typechecking,
                     .where = v.operator.where,
-                    .kind = .{ 
+                    .kind = .{
                         .operator_mismatch = .{
                             .expected = expected,
                             .found    = operand,
@@ -91,7 +91,7 @@ fn checkNode(self: *Self, id: usize) !Type {
                     .kind = .{
                         .binary_mismatch = .{
                             .left = left,
-                            .right = right, 
+                            .right = right,
                         },
                     },
                 });
@@ -168,8 +168,8 @@ fn checkNode(self: *Self, id: usize) !Type {
         },
 
         // FUNCTION
-        .function => |v| {
-            self.return_type = v.return_type;
+        .function => |*v| {
+            self.return_type = &v.return_type;
             _ = try self.checkNode(v.body);
             return .none;
         },
@@ -283,14 +283,16 @@ fn checkNode(self: *Self, id: usize) !Type {
         .return_statement => |v| {
 
             if (v.expr) |expr| {
-                const expr_type = try self.checkNode(expr);            
-                if (expr_type != self.return_type) {
+                const expr_type = try self.checkNode(expr);
+                if (self.return_type.* == .none) {
+                    self.return_type.* = expr_type;
+                } else if (expr_type != self.return_type.*) {
                     try self.pushError(.{
                         .stage = .typechecking,
                         .where = v.keyword.where,
-                        .kind = .{ 
+                        .kind = .{
                             .return_mismatch = .{
-                                .expected = self.return_type,
+                                .expected = self.return_type.*,
                                 .found = expr_type,
                             },
                         },
@@ -331,11 +333,11 @@ fn checkNode(self: *Self, id: usize) !Type {
                 try self.pushError(.{
                     .stage = .typechecking,
                     .where = v.delimiter.where,
-                    .kind = .{ 
+                    .kind = .{
                         .argument_mismatch = .{
                             .expected = param.type_,
                             .found    = argument,
-                        }, 
+                        },
                     },
                 });
                 unreachable;
@@ -359,7 +361,7 @@ fn checkNode(self: *Self, id: usize) !Type {
 }
 
 fn pushError(self: *Self, err: Error) !void {
-    
+
    try self.errors.append(err);
    return error.TypeError;
 }

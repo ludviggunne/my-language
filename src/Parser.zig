@@ -47,8 +47,8 @@ pub fn parse(self: *Self) !void {
 }
 
 fn pushError(self: *Self, err: Error) !void {
-    
-   try self.errors.append(err); 
+
+   try self.errors.append(err);
    return error.ParseError;
 }
 
@@ -68,7 +68,7 @@ fn sync(self: *Self) !SyncResult {
             .@"print",
             .@"break",
             .@"continue" => return .statement,
-            
+
             // End of block
             .@"}" => return .empty,
 
@@ -92,7 +92,7 @@ fn matchOrNull(
     comptime action: Action,
     kind: Token.Kind
 ) !?Token {
-    
+
     if (try self.lexer.peek()) |peek| {
         if (peek.kind == kind) {
             if (action == .take) {
@@ -108,9 +108,9 @@ fn matchOrNull(
 fn matchOneOfOrNull(
     self: *Self,
     comptime action: Action,
-    comptime matches: []const Token.Kind 
+    comptime matches: []const Token.Kind
 ) !?Token {
-    
+
     if (try self.lexer.peek()) |peek| {
 
         inline for (matches) |kind| {
@@ -136,7 +136,7 @@ fn expect(
         .take => try self.lexer.take(),
         .peek => try self.lexer.peek(),
     };
-    
+
     if (token) |found| {
         if (found.kind == expected) {
             return found;
@@ -144,7 +144,7 @@ fn expect(
             try self.pushError(.{
                 .stage = .parsing,
                 .where = found.where,
-                .kind  = .{ 
+                .kind  = .{
                     .unexpected_token = .{
                         .expected = expected,
                         .found    = found.kind,
@@ -184,7 +184,7 @@ fn expectOneOf(
             try self.pushError(.{
                 .stage = .parsing,
                 .where = found.where,
-                .kind  = .{ 
+                .kind  = .{
                     .unexpected_token_oneof = .{
                         .expected = expected_list,
                         .found    = found.kind,
@@ -204,10 +204,10 @@ fn expectOneOf(
 }
 
 fn topLevelList(self: *Self) anyerror!usize {
-    
+
     const decl = try self.topLevel();
     const next = if (try self.lexer.peek()) |_| try self.topLevelList() else null;
-    
+
     return try self.ast.push(.{
         .toplevel_list = .{
             .decl = decl,
@@ -228,7 +228,7 @@ fn topLevel(self: *Self) anyerror!usize {
 
 fn function(self: *Self) anyerror!usize {
 
-    _ = try self.lexer.take(); // fn 
+    _ = try self.lexer.take(); // fn
     const name = try self.expect(.take, .identifier);
     _ = try self.expect(.take, .@"(");
 
@@ -248,16 +248,20 @@ fn function(self: *Self) anyerror!usize {
         });
     }
 
-    _ = try self.expect(.take, .@":");
-    const return_token = try self.expectOneOf(
-        .take,
-        &[_] Token.Kind { .@"int", .@"bool", }
-    );
-    const return_type: Type = switch (return_token.kind) {
-        .@"int"  => .integer,
-        .@"bool" => .boolean,
-        else => unreachable,
-    };
+    var return_type: Type = undefined;
+
+    if (try self.matchOrNull(.peek, .@":")) |_| {
+        _ = try self.expect(.take, .@":");
+        const return_token = try self.expectOneOf(
+            .take,
+            &[_] Token.Kind { .@"int", .@"bool", }
+        );
+        return_type = switch (return_token.kind) {
+            .@"int"  => .integer,
+            .@"bool" => .boolean,
+            else => unreachable,
+        };
+    } else return_type = .none;
 
     _ = try self.expect(.take, .@"=");
     const body = try self.block();
@@ -486,7 +490,7 @@ fn whileStatement(self: *Self) anyerror!usize {
 }
 
 fn expression(self: *Self) anyerror!usize {
-    
+
     var left = try self.equality();
 
     while (try self.matchOneOfOrNull(.peek,
@@ -648,7 +652,7 @@ fn factor(self: *Self) anyerror!usize {
 fn reference(self: *Self) anyerror!usize {
 
     const name = try self.expect(.take, .identifier);
-    
+
     if (try self.matchOrNull(.take, .@"(")) |_| {
 
         const args = if (try self.matchOrNull(.take, .@")")) |_|
@@ -718,10 +722,10 @@ fn printStatement(self: *Self) anyerror!usize {
 }
 
 fn unary(self: *Self) anyerror!usize {
-    
+
     const operator = try self.expectOneOf(.take, &[_] Token.Kind { .@"-", .@"!", });
     const operand = try self.factor();
-    
+
     return self.ast.push(.{
         .unary = .{
             .operator = operator,
