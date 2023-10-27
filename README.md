@@ -41,6 +41,7 @@ Return types may also be inferred:
 ```
 fn add(x: int, y: int) = { return x + y; } # return integer
 ```
+All functions must return a value.
 The `main` function is the entry point of the program.
 It must return an integer.
 The parameter count is limited to four.
