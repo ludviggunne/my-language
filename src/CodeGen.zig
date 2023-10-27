@@ -27,6 +27,7 @@ loop_stack:     std.ArrayList(LoopState),
 errors:         std.ArrayList(Error),
 current_space:  usize,
 current_arg:    usize,
+found_main:     bool,
 
 pub fn init(
     ast: *Ast,
@@ -43,6 +44,7 @@ pub fn init(
         .errors        = std.ArrayList(Error).init(allocator),
         .current_space = 0,
         .current_arg   = 0,
+        .found_main    = false,
     };
 }
 
@@ -69,6 +71,14 @@ pub fn generate(self: *Self, writer: anytype) anyerror!void {
         \\
         , .{}
     );
+
+    if (!self.found_main) {
+        try self.errors.append(.{
+            .stage = .codegen,
+            .where = null,
+            .kind = .no_main,
+        });
+    }
 
     if (self.errors.items.len > 0) {
         return error.CodeGenError;
@@ -231,6 +241,8 @@ fn function(self: *Self, node: anytype, writer: anytype) anyerror!Register {
     _ = try self.generateNode(node.body, writer);
 
     if (std.mem.eql(u8, symbol.name, "main")) {
+
+        self.found_main = true;
         try writer.print(
             \\    movq     $60, %rax
             \\    movq     $0, %rdi

@@ -172,10 +172,19 @@ fn checkNode(self: *Self, id: usize) !Type {
         },
 
         // FUNCTION
-        .function => |*v| {
+        .function => |v| {
             self.return_type = &self.symtab.symbols.items[v.symbol].type_;
             self.returns = false;
-            self.is_main = std.mem.eql(u8, "main", v.name.where);
+            if (std.mem.eql(u8, "main", v.name.where)) {
+                self.is_main = true;
+                if (v.params) |_| {
+                    try self.pushError(.{
+                        .stage = .typechecking,
+                        .where = v.name.where,
+                        .kind = .main_has_params,
+                    });
+                }
+            }
             _ = try self.checkNode(v.body);
             if (!self.returns) {
                 try self.pushError(.{
@@ -184,6 +193,7 @@ fn checkNode(self: *Self, id: usize) !Type {
                     .kind = .no_return,
                 });
             }
+            self.is_main = false;
             return .none;
         },
 

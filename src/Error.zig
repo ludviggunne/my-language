@@ -62,6 +62,7 @@ kind: union(enum) {
     },
     no_return,
     main_non_int,
+    main_has_params,
     // Constant foldin
     division_by_zero,
     // Symbol resolution
@@ -74,6 +75,7 @@ kind: union(enum) {
     param_overflow: usize,
     // Code generation
     boc_outside_loop,
+    no_main,
 },
 
 pub fn print(self: *const Self, source: []const u8, writer: anytype) !void {
@@ -209,6 +211,14 @@ pub fn print(self: *const Self, source: []const u8, writer: anytype) !void {
             try printReference(self.where.?, source, writer);
         },
 
+        .no_main => {
+            try writer.print("Function main is not defined\n", .{});
+        },
+
+        .main_has_params => {
+            try writer.print("Function main should have zero parameters.\n", .{});
+            try printReference(self.where.?, source, writer);
+        },
 
         else => try writer.print("UNIMPLEMENTED ERROR MESSAGE\n", .{}),
     }
