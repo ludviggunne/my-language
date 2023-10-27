@@ -55,7 +55,7 @@ pub fn deinit(self: *Self) void {
 pub fn generate(self: *Self, writer: anytype) anyerror!void {
 
     try writer.print(
-       \\.globl main 
+       \\.globl main
        \\.section .text
        \\
        , .{}
@@ -65,7 +65,7 @@ pub fn generate(self: *Self, writer: anytype) anyerror!void {
 
     try writer.print(
         \\.section .data
-        \\    __fmt: .asciz "> %d\n" 
+        \\    __fmt: .asciz "> %d\n"
         \\
         , .{}
     );
@@ -76,7 +76,7 @@ pub fn generate(self: *Self, writer: anytype) anyerror!void {
 }
 
 fn generateNode(self: *Self, id: usize, writer: anytype) anyerror!Register {
-    
+
     const node = self.ast.nodes.items[id];
 
     return switch (node) {
@@ -105,7 +105,7 @@ fn generateNode(self: *Self, id: usize, writer: anytype) anyerror!Register {
 }
 
 fn pushError(self: *Self, err: Error) anyerror!void {
-    
+
     try self.errors.append(err);
     return error.CodeGenError;
 }
@@ -138,7 +138,7 @@ fn stackStr(self: *Self, id: usize) anyerror![]const u8 {
 fn stackOffset(local_id: usize) i64 {
 
     const offset: i64 = -8 * @as(i64, @intCast(local_id + 1));
-    return offset; 
+    return offset;
 }
 
 fn breakStatement(self: *Self, node: anytype, writer: anytype) anyerror!Register {
@@ -209,7 +209,7 @@ fn toplevelList(self: *Self, node: anytype, writer: anytype) anyerror!Register {
 }
 
 fn function(self: *Self, node: anytype, writer: anytype) anyerror!Register {
-    
+
     const symbol = self.symtab.symbols.items[node.symbol];
     const func = switch (symbol.kind) {
         .function => |v| v,
@@ -223,7 +223,7 @@ fn function(self: *Self, node: anytype, writer: anytype) anyerror!Register {
         \\
         , .{ node.name.where }
     );
-    
+
     try self.calleeBegin(writer);
 
     try spillParams(func.param_count, writer);
@@ -305,7 +305,7 @@ fn assignment(self: *Self, node: anytype, writer: anytype) anyerror!Register {
                 @tagName(expr_reg),
             }
         ),
-        
+
         .@"*=" => try writer.print(
             \\    movq     {0s}, %rax
             \\    imulq    %{1s}
@@ -350,7 +350,7 @@ fn assignment(self: *Self, node: anytype, writer: anytype) anyerror!Register {
 }
 
 fn binary(self: *Self, node: anytype, writer: anytype) anyerror!Register {
-    
+
     return switch (node.operator.kind) {
         .@"-",
         .@"+",
@@ -379,7 +379,7 @@ fn logical(self: *Self, node: anytype, writer: anytype) anyerror!Register {
 
     const result = left;
     const discard = right;
-    
+
     defer self.pool.free(discard);
 
     switch (node.operator.kind) {
@@ -409,7 +409,7 @@ fn arithmetic(self: *Self, node: anytype, writer: anytype) anyerror!Register {
 
     const result = left;
     const discard = right;
-    
+
     defer self.pool.free(discard);
 
     switch (node.operator.kind) {
@@ -464,12 +464,12 @@ fn comparison(self: *Self, node: anytype, writer: anytype) anyerror!Register {
 
     const left = try self.generateNode(node.left, writer);
     const right = try self.generateNode(node.right, writer);
-    
+
     const result = left;
     const discard = right;
 
     defer self.pool.free(discard);
-    
+
     const jump_instruction = switch (node.operator.kind) {
         .@"<"  => "jl  ",
         .@"<=" => "jle ",
@@ -509,7 +509,7 @@ fn unary(self: *Self, node: anytype, writer: anytype) anyerror!Register {
     const operand = try self.generateNode(node.operand, writer);
 
     switch (node.operator.kind) {
-        
+
         .@"-" => try writer.print(
             \\    negq     %{0s}
             \\
@@ -543,7 +543,7 @@ fn call(self: *Self, node: anytype, writer: anytype) anyerror!Register {
             , .{}
         );
     }
-    
+
     try callerSave(writer);
     try writer.print(
         \\    call     {0s}
@@ -553,7 +553,7 @@ fn call(self: *Self, node: anytype, writer: anytype) anyerror!Register {
     try callerRestore(writer);
 
     const result = try self.pool.alloc();
-    
+
     try writer.print(
         \\    movq     %rax, %{0s}
         \\
@@ -568,11 +568,11 @@ fn argumentList(self: *Self, node: anytype, writer: anytype) anyerror!Register {
     const expr = try self.generateNode(node.expr, writer);
     defer self.pool.free(expr);
 
-    const arg_reg: ArgumentRegister 
+    const arg_reg: ArgumentRegister
         = @enumFromInt(self.current_arg);
 
     self.current_arg += 1;
-    
+
     try writer.print(
         \\    movq     %{0s}, %{1s}
         \\
@@ -600,8 +600,8 @@ fn block(self: *Self, node: anytype, writer: anytype) anyerror!Register {
     return self.generateNode(node.content, writer);
 }
 
-fn statementList(self: *Self, node: anytype, writer: anytype) anyerror!Register { 
-    
+fn statementList(self: *Self, node: anytype, writer: anytype) anyerror!Register {
+
     _ = self.generateNode(node.statement, writer) catch |e| {
         // Codegen errors are recoverable
         if (e != error.CodeGenError) {
@@ -616,7 +616,7 @@ fn statementList(self: *Self, node: anytype, writer: anytype) anyerror!Register 
     return .none;
 }
 
-fn ifStatement(self: *Self, node: anytype, writer: anytype) anyerror!Register { 
+fn ifStatement(self: *Self, node: anytype, writer: anytype) anyerror!Register {
 
     const done_label = self.newLabel();
     const condition = try self.generateNode(node.condition, writer);
@@ -629,7 +629,7 @@ fn ifStatement(self: *Self, node: anytype, writer: anytype) anyerror!Register {
     );
 
     if (node.else_block) |else_block| {
-        
+
         const else_label = self.newLabel();
 
         try writer.print(
@@ -659,7 +659,7 @@ fn ifStatement(self: *Self, node: anytype, writer: anytype) anyerror!Register {
 
         _ = try self.generateNode(node.block, writer);
     }
-    
+
     try writer.print(
         \\.done_{0d}:
         \\
@@ -739,12 +739,12 @@ fn variable(self: *Self, node: anytype, writer: anytype) anyerror!Register {
             @tagName(register),
         }
     );
-    
+
     return register;
 }
 
 fn constant(self: *Self, node: anytype, writer: anytype) anyerror!Register {
-    
+
     const register = try self.pool.alloc();
     try writer.print(
         \\    movq     ${0d}, %{1s}
@@ -791,7 +791,7 @@ fn calleeBegin(self: *Self, writer: anytype) anyerror!void {
         \\    push     %r15
         \\
         , .{ self.current_space, }
-    );    
+    );
 }
 
 fn calleeEnd(self: *Self, writer: anytype) anyerror!void {
@@ -805,7 +805,7 @@ fn calleeEnd(self: *Self, writer: anytype) anyerror!void {
         \\    pop      %rbp
         \\
         , .{ self.current_space, }
-    );    
+    );
 }
 
 fn spillParams(count: usize, writer: anytype) anyerror!void {
@@ -824,21 +824,13 @@ fn spillParams(count: usize, writer: anytype) anyerror!void {
 }
 fn returnStatement(self: *Self, node: anytype, writer: anytype) anyerror!Register {
 
-    if (node.expr) |expr| {
-        const expr_reg = try self.generateNode(expr, writer);
-        defer self.pool.free(expr_reg);
-        try writer.print(
-            \\    movq     %{0s}, %rax
-            \\
-            , .{ @tagName(expr_reg), }
-        );
-    } else {
-        try writer.print(
-            \\    movq     $0, %rax
-            \\
-            , .{}
-        );
-    }
+    const expr_reg = try self.generateNode(node.expr, writer);
+    defer self.pool.free(expr_reg);
+    try writer.print(
+        \\    movq     %{0s}, %rax
+        \\
+        , .{ @tagName(expr_reg), }
+    );
 
 
     try self.calleeEnd(writer);
@@ -847,7 +839,7 @@ fn returnStatement(self: *Self, node: anytype, writer: anytype) anyerror!Registe
         \\    ret
         \\
         , .{}
-    ); 
+    );
 
     return .none;
 }

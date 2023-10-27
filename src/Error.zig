@@ -60,6 +60,8 @@ kind: union(enum) {
         expected: Type,
         found:    Type,
     },
+    no_return,
+    main_non_int,
     // Constant foldin
     division_by_zero,
     // Symbol resolution
@@ -154,6 +156,16 @@ pub fn print(self: *const Self, source: []const u8, writer: anytype) !void {
                 "Type mismatch: Can't return {0s} from function with declared return type {1s}\n",
                 .{ @tagName(v.found), @tagName(v.expected), }
             );
+            try printReference(self.where.?, source, writer);
+        },
+
+        .no_return => {
+            try writer.print("Function {0s} may not return.\n", .{ self.where.?, });
+            try printReference(self.where.?, source, writer);
+        },
+
+        .main_non_int => {
+            try writer.print("Function main must return an integer\n", .{});
             try printReference(self.where.?, source, writer);
         },
 

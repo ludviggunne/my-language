@@ -94,7 +94,7 @@ pub const Node = union(enum) {
 
     return_statement: struct {
         keyword: Token,
-        expr:    ?usize,
+        expr:    usize,
     },
 
     print_statement: struct {
@@ -294,9 +294,7 @@ fn dumpNode(
             try writer.print("return\n", .{});
             try spacing(writer, i + 1, bars);
             unsetBar(bars, i);
-            if (v.expr) |expr| {
-                try self.dumpNode(expr, writer, i + 1, bars);
-            }
+            try self.dumpNode(v.expr, writer, i + 1, bars);
         },
 
         .print_statement => |v| {

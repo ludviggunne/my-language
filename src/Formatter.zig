@@ -178,10 +178,8 @@ fn formatNode(self: *Self, id: usize, writer: anytype) !void {
         .return_statement => |v| {
             try self.printIndent(writer);
             try writer.print("return", .{});
-            if (v.expr) |expr| {
-                try writer.print(" ", .{});
-                try self.formatNode(expr, writer);
-            }
+            try writer.print(" ", .{});
+            try self.formatNode(v.expr, writer);
             try writer.print(";", .{});
             try newLine(writer);
         },

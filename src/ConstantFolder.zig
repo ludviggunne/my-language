@@ -24,7 +24,7 @@ pub fn fold(self: *Self) !void {
 
     try self.foldNode(self.ast.root);
     if (self.errors.items.len > 0) {
-        return error.ConstantError; 
+        return error.ConstantError;
     }
 }
 
@@ -42,8 +42,8 @@ fn pushError(self: *Self, err: Error) !void {
 }
 
 fn foldNode(self: *Self, id: usize) !void {
-    
-    var node = &self.ast.nodes.items[id];    
+
+    var node = &self.ast.nodes.items[id];
 
     switch (node.*) {
 
@@ -68,7 +68,7 @@ fn foldNode(self: *Self, id: usize) !void {
             try self.foldNode(v.body);
         },
 
-        // BLOCK 
+        // BLOCK
         .block => |v| {
             try self.foldNode(v.content);
         },
@@ -119,9 +119,7 @@ fn foldNode(self: *Self, id: usize) !void {
 
         // RETURN
         .return_statement => |v| {
-            if (v.expr) |expr| {
-                try self.foldNode(expr);
-            }
+            try self.foldNode(v.expr);
         },
 
         // PRINT
@@ -146,7 +144,7 @@ fn foldNode(self: *Self, id: usize) !void {
 
         // CONSTANT
         .constant => |*v| switch (v.token.?.kind) {
-            .literal => v.value = std.fmt.parseInt(i64, v.token.?.where, 10) 
+            .literal => v.value = std.fmt.parseInt(i64, v.token.?.where, 10)
                 catch unreachable, // string is validated during lexing
             .@"true" => v.value = 1,
             .@"false" => v.value = 0,
@@ -172,13 +170,13 @@ fn foldNode(self: *Self, id: usize) !void {
 
         // BINARY
         .binary => |*v| {
-            
+
             try self.foldNode(v.left);
             try self.foldNode(v.right);
 
             if (self.getConstOrNull(v.left)) |left| {
                 if (self.getConstOrNull(v.right)) |right| {
-                    
+
                     const value = switch (v.operator.kind) {
                         .@"+" => left + right,
                         .@"-" => left - right,

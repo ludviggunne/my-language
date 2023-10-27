@@ -10,6 +10,8 @@ ast: *Ast,
 symtab: *SymbolTable,
 errors: std.ArrayList(Error),
 return_type: *Type,
+returns: bool,
+is_main: bool,
 param_index: usize,
 
 pub fn init(ast: *Ast, symtab: *SymbolTable, allocator: std.mem.Allocator) Self {
@@ -18,6 +20,8 @@ pub fn init(ast: *Ast, symtab: *SymbolTable, allocator: std.mem.Allocator) Self 
         .symtab = symtab,
         .errors = std.ArrayList(Error).init(allocator),
         .return_type = undefined,
+        .returns = false,
+        .is_main = false,
         .param_index = 0,
     };
 }
@@ -170,7 +174,16 @@ fn checkNode(self: *Self, id: usize) !Type {
         // FUNCTION
         .function => |*v| {
             self.return_type = &v.return_type;
+            self.returns = false;
+            self.is_main = std.mem.eql(u8, "main", v.name.where);
             _ = try self.checkNode(v.body);
+            if (!self.returns) {
+                try self.pushError(.{
+                    .stage = .typechecking,
+                    .where = v.name.where,
+                    .kind = .no_return,
+                });
+            }
             return .none;
         },
 
@@ -252,9 +265,13 @@ fn checkNode(self: *Self, id: usize) !Type {
                 unreachable;
             }
 
+            const returns_before = self.returns;
             _ = try self.checkNode(v.block);
             if (v.else_block) |else_block| {
                 _ = try self.checkNode(else_block);
+            }
+            if (self.returns and !returns_before) {
+                self.returns = false;
             }
 
             return .none;
@@ -274,7 +291,11 @@ fn checkNode(self: *Self, id: usize) !Type {
                 unreachable;
             }
 
+            const returns_before = self.returns;
             _ = try self.checkNode(v.block);
+            if (self.returns and !returns_before) {
+                self.returns = false;
+            }
 
             return .none;
         },
@@ -282,23 +303,32 @@ fn checkNode(self: *Self, id: usize) !Type {
         // RETURN
         .return_statement => |v| {
 
-            if (v.expr) |expr| {
-                const expr_type = try self.checkNode(expr);
-                if (self.return_type.* == .none) {
-                    self.return_type.* = expr_type;
-                } else if (expr_type != self.return_type.*) {
-                    try self.pushError(.{
-                        .stage = .typechecking,
-                        .where = v.keyword.where,
-                        .kind = .{
-                            .return_mismatch = .{
-                                .expected = self.return_type.*,
-                                .found = expr_type,
-                            },
+            const expr_type = try self.checkNode(v.expr);
+
+            self.returns = true;
+
+            if (self.is_main and expr_type != .integer) {
+                try self.pushError(.{
+                    .stage = .typechecking,
+                    .where = v.keyword.where,
+                    .kind = .main_non_int,
+                });
+            }
+
+            if (self.return_type.* == .none) {
+                self.return_type.* = expr_type;
+            } else if (expr_type != self.return_type.*) {
+                try self.pushError(.{
+                    .stage = .typechecking,
+                    .where = v.keyword.where,
+                    .kind = .{
+                        .return_mismatch = .{
+                            .expected = self.return_type.*,
+                            .found = expr_type,
                         },
-                    });
-                    unreachable;
-                }
+                    },
+                });
+                unreachable;
             }
 
             return .none;

@@ -344,9 +344,7 @@ fn resolveNode(self: *Self, id: usize) !void {
         },
 
         .return_statement => |*v| {
-            if (v.expr) |expr| {
-                try self.resolveNode(expr);
-            }
+            try self.resolveNode(v.expr);
         },
 
         .variable => |*v| {
