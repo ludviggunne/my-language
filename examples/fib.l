@@ -2,7 +2,7 @@
 # - - - - - - FIBONACCI - - - - - - -
 
 fn fib(n: int): int = {
-    
+
     if n < 2 {
         return n;
     } else {
@@ -10,14 +10,16 @@ fn fib(n: int): int = {
     }
 }
 
-fn main(): int = {
+fn main() = {
 
     let n: int = 0;
     let c: bool = true;
-    
+
     while c {
         print fib(n);
         n += 1;
         c = n <= 10;
     }
+
+    return 0;
 }
