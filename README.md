@@ -30,6 +30,15 @@ Types of variables may also be inferred:
 let x = 0;    # integer
 let y = true; # boolean
 ```
+Variables can be shadowed:
+```
+let x = 0;
+{
+    let x = 1;
+    print x; # prints 1
+}
+print x; # prints 0
+```
 
 ### Functions
 ```
@@ -44,8 +53,32 @@ fn add(x: int, y: int) = { return x + y; } # return integer
 ```
 All functions must return a value.
 The `main` function is the entry point of the program.
-It must return an integer.
+It must return an integer and have no parameters.
 The parameter count is limited to four.
+A function must be declared before it is used.
+
+
+The compiler verifies that a function always returns.
+The following code does not compile:
+```
+fn function(x: bool) = {
+
+    if x {
+        return 3;
+    }
+}
+```
+but this does:
+```
+fn function(x: bool) = {
+
+    if x {
+        return 3;
+    } else {
+        return 2;
+    }
+}
+```
 
 ### Control flow
 ```
@@ -53,9 +86,24 @@ if x == 70 {
     x -= 1;
 }
 ```
+Arithemtic and logical expressions are evaluated at compile time,
+and `if`/`else` branches can be eliminated. The following code:
+```
+if 1 + 2 > 5 {
+    print 4;
+} else {
+    print 3 * 5;
+}
+```
+will be reduced to:
+```
+print 15;
+```
+There are also `while`, `break` and `continue` statements that
+do what you'd expect.
 
 ### Printing to stdout
-There is a specific `print` statement that prints it's argument (bools are printed as 1/0).
+There is a special `print` statement that prints it's argument (bools are printed as 1/0).
 ```
 print x + y;
 ```
@@ -65,9 +113,3 @@ The build script also builds a simple code formatter, which can be used like so:
 ```
 cat program.l | ./lfmt > tmp && mv tmp program.l
 ```
-
-## Compiler features
-* Rudimentary type checking (bool/int)
-* Variable shadowing
-* Constant folding of compile time known arithmetic and logical expressions
-* Eliminates if/else branches if condition is compile time known
