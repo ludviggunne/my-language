@@ -116,48 +116,68 @@ pub fn print(self: *const Self, source: []const u8, writer: anytype) !void {
         .unexpected_eoi => try writer.print("Unexpected end of input\n", .{}),
 
         .binary_mismatch => |v| {
-            try writer.print(
-                "Type mismatch for binary operator: {s} =/= {s}\n",
-                .{
-                    @tagName(v.left),
-                    @tagName(v.right),
-                }
-            );
+            if (v.left == .none or v.right == .none) {
+                try writer.print("Unable to infer type of expression", .{});
+            } else {
+                try writer.print(
+                    "Type mismatch for binary operator: {s} =/= {s}\n",
+                    .{
+                        @tagName(v.left),
+                        @tagName(v.right),
+                    }
+                );
+            }
             try printReference(self.where.?, source, writer);
         },
 
         .operator_mismatch => |v| {
-            try writer.print(
-                "Type mismatch: can't use operator {s} with type {s}\n",
-                .{
-                    self.where.?,
-                    @tagName(v.found),
-                },
-            );
+            if (v.found == .none) {
+                try writer.print("Unable to infer type of expression\n", .{});
+            } else {
+                try writer.print(
+                    "Type mismatch: can't use operator {s} with type {s}\n",
+                    .{
+                        self.where.?,
+                        @tagName(v.found),
+                    },
+                );
+            }
             try printReference(self.where.?, source, writer);
         },
 
         .assignment_mismatch => |v| {
-            try writer.print(
-                "Type mismatch: can't assign variable of type {0s} to {1s}\n",
-                .{ @tagName(v.expected), @tagName(v.found), }
-            );
+            if (v.found == .none) {
+                try writer.print("Unable to infer type of expression\n", .{});
+            } else {
+                try writer.print(
+                    "Type mismatch: can't assign variable of type {0s} to {1s}\n",
+                    .{ @tagName(v.expected), @tagName(v.found), }
+                );
+            }
             try printReference(self.where.?, source, writer);
         },
 
         .argument_mismatch => |v| {
-            try writer.print(
-                "Argument type mismatch: expected {0s}, found {1s}\n",
-                .{ @tagName(v.expected), @tagName(v.found), }
-            );
+            if (v.found == .none) {
+                try writer.print("Unable to infer type of expression\n", .{});
+            } else {
+                try writer.print(
+                    "Argument type mismatch: expected {0s}, found {1s}\n",
+                    .{ @tagName(v.expected), @tagName(v.found), }
+                );
+            }
             try printReference(self.where.?, source, writer);
         },
 
         .return_mismatch => |v| {
-            try writer.print(
-                "Type mismatch: Can't return {0s} from function with declared return type {1s}\n",
-                .{ @tagName(v.found), @tagName(v.expected), }
-            );
+            if (v.found == .none) {
+                try writer.print("Unable to infer type of expression\n", .{});
+            } else {
+                try writer.print(
+                    "Type mismatch: Can't return {0s} from function with declared return type {1s}\n",
+                    .{ @tagName(v.found), @tagName(v.expected), }
+                );
+            }
             try printReference(self.where.?, source, writer);
         },
 
