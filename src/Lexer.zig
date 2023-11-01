@@ -45,7 +45,7 @@ pub fn deinit(self: *Self) void {
 }
 
 pub fn dump(self: *Self, writer: anytype) !void {
-    
+
     try writer.print("---------- Lexer dump ----------\n", .{});
     while (try self.take()) |token| {
         try writer.print(
@@ -53,7 +53,7 @@ pub fn dump(self: *Self, writer: anytype) !void {
             .{
                 @tagName(token.kind),
                 token.where,
-            } 
+            }
         );
     }
 }
@@ -110,7 +110,7 @@ pub fn take(self: *Self) !?Token {
         ')' => .@")",
         else => null,
     };
-    
+
     if (single) |kind| {
         return .{
             .kind = kind,
@@ -166,7 +166,7 @@ pub fn take(self: *Self) !?Token {
 
     // Numeric constant
     if (numeric(curr)) {
-        
+
         while (self.peekChar()) |c| {
             if (numeric(c)) {
                 _ = self.takeChar();
@@ -203,7 +203,7 @@ pub fn peek(self: *Self) !?Token {
 }
 
 fn takeChar(self: *Self) ?u8 {
-    
+
     if (self.index < self.source.len) {
         defer self.index += 1;
         return self.source[self.index];
@@ -211,7 +211,7 @@ fn takeChar(self: *Self) ?u8 {
 }
 
 fn peekChar(self: *Self) ?u8 {
-    
+
     if (self.index < self.source.len) {
         return self.source[self.index];
     } else return null;

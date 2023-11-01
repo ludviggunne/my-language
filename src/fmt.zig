@@ -18,7 +18,7 @@ pub fn main() !u8 {
     const source = try stdin.readToEndAlloc(allocator, 2048);
     defer allocator.free(source);
 
-    var lexer = Lexer.init(source, allocator); 
+    var lexer = Lexer.init(source, allocator);
     defer lexer.deinit();
 
     var ast = Ast.init(allocator);
