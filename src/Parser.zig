@@ -266,6 +266,8 @@ fn function(self: *Self) anyerror!usize {
     _ = try self.expect(.take, .@"=");
     const body = try self.block();
 
+    _ = try self.expect(.take, .@";");
+
     return self.ast.push(.{
         .function = .{
             .name        = name,
