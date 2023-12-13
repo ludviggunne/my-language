@@ -72,7 +72,7 @@ pub fn main() !u8 {
     if (config.dump) try symtab.dump(stdout);
 
     // Constant folding
-    var folder = ConstantFolder.init(&ast, allocator);
+    var folder = ConstantFolder.init(&ast, &symtab, allocator);
     defer folder.deinit();
 
     folder.fold()

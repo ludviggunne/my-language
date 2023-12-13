@@ -37,6 +37,7 @@ pub const Node = union(enum) {
         symbol: usize = undefined,
         name:   Token,
         type_:  Type,
+        global: bool,
         expr:   usize,
     },
 

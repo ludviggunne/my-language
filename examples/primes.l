@@ -13,7 +13,7 @@ fn isPrime(n: int) = {
     }
 
     return true;
-}
+};
 
 fn main() = {
 
@@ -29,4 +29,4 @@ fn main() = {
     }
 
     return 0;
-}
+};

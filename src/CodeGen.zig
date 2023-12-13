@@ -28,6 +28,7 @@ errors:         std.ArrayList(Error),
 current_space:  usize,
 current_arg:    usize,
 found_main:     bool,
+global_decls:   std.ArrayList(usize),
 
 pub fn init(
     ast: *Ast,
@@ -45,6 +46,7 @@ pub fn init(
         .current_space = 0,
         .current_arg   = 0,
         .found_main    = false,
+        .global_decls  = std.ArrayList(usize).init(allocator),
     };
 }
 
@@ -52,6 +54,7 @@ pub fn deinit(self: *Self) void {
 
     self.errors.deinit();
     self.loop_stack.deinit();
+    self.global_decls.deinit();
 }
 
 pub fn generate(self: *Self, writer: anytype) anyerror!void {
@@ -71,6 +74,15 @@ pub fn generate(self: *Self, writer: anytype) anyerror!void {
         \\
         , .{}
     );
+
+    for (self.global_decls.items) |id| {
+        const symbol = self.symtab.symbols.items[id];
+        try writer.print(
+            \\    __{s}: .quad {d}
+            \\
+            , .{ symbol.name, symbol.kind.variable.global, }
+        );
+    }
 
     if (!self.found_main) {
         try self.errors.append(.{
@@ -125,24 +137,28 @@ fn newLabel(self: *Self) usize {
     return self.label_counter;
 }
 
-fn stackStr(self: *Self, id: usize) anyerror![]const u8 {
+fn varRef(self: *Self, id: usize) anyerror![]const u8 {
 
     const static = struct {
         var buf: [32]u8 = undefined;
     };
 
     const symbol = self.symtab.symbols.items[id];
-    const stack_id = switch (symbol.kind) {
-        .function => unreachable, // function stackStr
-        .variable => |u| switch (u) {
-            .global => unreachable, // global stackStr
-            .local  => |v| v,
-            .param  => |v| v,
+    switch (symbol.kind.variable) {
+        .global => |_| {
+            return std.fmt.bufPrint(&static.buf, "__{s}(%rip)", .{ symbol.name, });
         },
-    };
+        else => {
+            const stack_id = switch (symbol.kind.variable) {
+                .local => |v| v,
+                .param => |v| v,
+                else => unreachable, // global
+            };
 
-    const offset = stackOffset(stack_id);
-    return std.fmt.bufPrint(&static.buf, "{d}(%rbp)", .{ offset, });
+            const offset = stackOffset(stack_id);
+            return std.fmt.bufPrint(&static.buf, "{d}(%rbp)", .{ offset, });
+        },
+    }
 }
 
 fn stackOffset(local_id: usize) i64 {
@@ -263,14 +279,24 @@ fn parameterList(self: *Self, node: anytype, writer: anytype) anyerror!Register 
 
 fn declaration(self: *Self, node: anytype, writer: anytype) anyerror!Register {
 
-    const expr_reg = try self.generateNode(node.expr, writer);
-    defer self.pool.free(expr_reg);
+    const symbol = self.symtab.symbols.items[node.symbol];
 
-    try writer.print(
-        \\    movq     %{0s}, {1s}
-        \\
-        , .{ @tagName(expr_reg), try self.stackStr(node.symbol), }
-    );
+    switch (symbol.kind.variable) {
+        .global => |_| {
+            try self.global_decls.append(node.symbol);
+        },
+        .local => {
+            const expr_reg = try self.generateNode(node.expr, writer);
+            defer self.pool.free(expr_reg);
+
+            try writer.print(
+                \\    movq     %{0s}, {1s}
+                \\
+                , .{ @tagName(expr_reg), try self.varRef(node.symbol), }
+            );
+        },
+        .param => unreachable, // params aren't declared
+    }
 
     return .none;
 }
@@ -290,7 +316,7 @@ fn assignment(self: *Self, node: anytype, writer: anytype) anyerror!Register {
             \\
             , .{
                 @tagName(expr_reg),
-                try self.stackStr(node.symbol),
+                try self.varRef(node.symbol),
             }
         ),
 
@@ -300,7 +326,7 @@ fn assignment(self: *Self, node: anytype, writer: anytype) anyerror!Register {
             \\    movq     %{1s}, {0s}
             \\
             , .{
-                try self.stackStr(node.symbol),
+                try self.varRef(node.symbol),
                 @tagName(load_reg),
                 @tagName(expr_reg),
             }
@@ -312,7 +338,7 @@ fn assignment(self: *Self, node: anytype, writer: anytype) anyerror!Register {
             \\    movq     %{1s}, {0s}
             \\
             , .{
-                try self.stackStr(node.symbol),
+                try self.varRef(node.symbol),
                 @tagName(load_reg),
                 @tagName(expr_reg),
             }
@@ -324,7 +350,7 @@ fn assignment(self: *Self, node: anytype, writer: anytype) anyerror!Register {
             \\    movq     %rax, %{0s}
             \\
             , .{
-                try self.stackStr(node.symbol),
+                try self.varRef(node.symbol),
                 @tagName(expr_reg),
             }
         ),
@@ -337,7 +363,7 @@ fn assignment(self: *Self, node: anytype, writer: anytype) anyerror!Register {
             \\    movq     %rax, {0s}
             \\
             , .{
-                try self.stackStr(node.symbol),
+                try self.varRef(node.symbol),
                 @tagName(expr_reg),
             }
         ),
@@ -350,7 +376,7 @@ fn assignment(self: *Self, node: anytype, writer: anytype) anyerror!Register {
             \\    movq     %rdx, {0s}
             \\
             , .{
-                try self.stackStr(node.symbol),
+                try self.varRef(node.symbol),
                 @tagName(expr_reg),
             }
         ),
@@ -747,7 +773,7 @@ fn variable(self: *Self, node: anytype, writer: anytype) anyerror!Register {
         \\    movq     {0s}, %{1s}
         \\
         , .{
-            try self.stackStr(node.symbol),
+            try self.varRef(node.symbol),
             @tagName(register),
         }
     );

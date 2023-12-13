@@ -1,17 +1,22 @@
 
 const std = @import("std");
 const Ast = @import("Ast.zig");
+const SymbolTable = @import("SymbolTable.zig");
 const Error = @import("Error.zig");
 const Self = @This();
 
-ast: *Ast,
-errors: std.ArrayList(Error),
+ast:       *Ast,
+symtab:    *SymbolTable,
+errors:    std.ArrayList(Error),
+top_level: bool,
 
-pub fn init(ast: *Ast, allocator: std.mem.Allocator) Self {
+pub fn init(ast: *Ast, symtab: *SymbolTable, allocator: std.mem.Allocator) Self {
 
     return .{
         .ast = ast,
+        .symtab = symtab,
         .errors = std.ArrayList(Error).init(allocator),
+        .top_level = true,
     };
 }
 
@@ -50,15 +55,27 @@ fn foldNode(self: *Self, id: usize) !void {
         .empty,
         .break_statement,
         .continue_statement,
-        .parameter_list,
-        .variable => {},
+        .parameter_list => {},
+        .variable => |v| {
+            if (self.top_level) {
+                const symbol = &self.symtab.symbols.items[v.symbol];
+                switch (symbol.kind.variable) {
+                    .global => |w| {
+                        node.* = .{ .constant = .{ .type_ = symbol.type_, .value = w } };
+                    },
+                    else => {},
+                }
+            }
+        },
 
         .parenthesized => |v| try self.foldNode(v.content),
 
         // TOPLEVEL
         .toplevel_list => |v| {
+            self.top_level = true;
             try self.foldNode(v.decl);
             if (v.next) |next| {
+                self.top_level = true;
                 try self.foldNode(next);
             }
         },
@@ -70,6 +87,7 @@ fn foldNode(self: *Self, id: usize) !void {
 
         // BLOCK
         .block => |v| {
+            self.top_level = false;
             try self.foldNode(v.content);
         },
 
@@ -84,6 +102,12 @@ fn foldNode(self: *Self, id: usize) !void {
         // DECLARATION
         .declaration => |v| {
             try self.foldNode(v.expr);
+            switch (self.symtab.symbols.items[v.symbol].kind.variable) {
+                .global => |*w| {
+                    w.* = self.getConstOrNull(v.expr).?;
+                },
+                else => {},
+            }
         },
 
         // ASSIGNMENT

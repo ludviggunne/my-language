@@ -218,10 +218,11 @@ fn topLevelList(self: *Self) anyerror!usize {
 
 fn topLevel(self: *Self) anyerror!usize {
 
-    const begin = try self.expectOneOf(.peek, &[_] Token.Kind { .@"fn", });
+    const begin = try self.expectOneOf(.peek, &[_] Token.Kind { .@"fn", .@"let", });
 
     return switch (begin.kind) {
         .@"fn" => try self.function(),
+        .@"let" => try self.declaration(true),
         else => unreachable,
     };
 }
@@ -339,7 +340,7 @@ fn statementList(self: *Self) anyerror!usize {
 
     const stmnt = switch(begin.kind) {
         .@"{"        => self.block(),
-        .@"let"      => self.declaration(),
+        .@"let"      => self.declaration(false),
         .@"if"       => self.ifStatement(),
         .@"while"    => self.whileStatement(),
         .@"return"   => self.returnStatement(),
@@ -393,7 +394,7 @@ fn continueStatement(self: *Self) anyerror!usize {
     });
 }
 
-fn declaration(self: *Self) anyerror!usize {
+fn declaration(self: *Self, global: bool) anyerror!usize {
 
     _ = try self.expect(.take, .@"let");
     const name = try self.expect(.take, .identifier);
@@ -428,6 +429,7 @@ fn declaration(self: *Self) anyerror!usize {
         .declaration = .{
             .name  = name,
             .type_ = type_,
+            .global = global,
             .expr  = expr,
         },
     });

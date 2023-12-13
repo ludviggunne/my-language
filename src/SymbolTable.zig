@@ -18,7 +18,7 @@ const Symbol = struct {
             local_count: usize,
         },
         variable: union(enum) {
-            global,
+            global: i64,
             local: usize,
             param: usize,
         }
@@ -293,10 +293,15 @@ fn resolveNode(self: *Self, id: usize) !void {
                 .name = v.name.where,
                 .type_ = v.type_,
                 .kind = .{
-                    .variable = .{ .local = self.local_counter, },
+                    .variable = if (self.current_scope == 0)
+                        .{ .global = undefined, }
+                        else
+                        .{ .local = self.local_counter, }
                 },
             });
-            self.local_counter += 1;
+            if (self.current_scope > 0) {
+                self.local_counter += 1;
+            }
         },
 
         .assignment => |*v| {
@@ -395,7 +400,7 @@ pub fn dump(self: *Self, writer: anytype) !void {
                 switch (v) {
                     .param  => |u| try writer.print("param ({d})", .{ u, }),
                     .local  => |u| try writer.print("local ({d})", .{ u, }),
-                    .global => try writer.print("global", .{}),
+                    .global => |_| try writer.print("global", .{}),
                 }
                 try writer.print(", type: {0s}\n", .{ @tagName(symbol.type_), });
             },
