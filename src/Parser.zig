@@ -132,13 +132,11 @@ fn expect(
     expected: Token.Kind
 ) !Token {
 
-    const token = switch (action) {
-        .take => try self.lexer.take(),
-        .peek => try self.lexer.peek(),
-    };
-
-    if (token) |found| {
+    if (try self.lexer.peek()) |found| {
         if (found.kind == expected) {
+            if (action == .take) {
+                _ = try self.lexer.take();
+            }
             return found;
         } else {
             try self.pushError(.{
@@ -169,15 +167,13 @@ fn expectOneOf(
     comptime expected_list: []const Token.Kind
 ) !Token {
 
-    const token = switch (action) {
-        .take => try self.lexer.take(),
-        .peek => try self.lexer.peek(),
-    };
-
-    if (token) |found| {
+    if (try self.lexer.peek()) |found| {
 
         inline for (expected_list) |expected| {
             if (found.kind == expected) {
+                if (action == .take) {
+                    _ = try self.lexer.take();
+                }
                 return found;
             }
         } else {
