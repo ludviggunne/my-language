@@ -5,7 +5,9 @@
     <TopLevel> <ToplevelList> |
     <TopLevel>;
 
-<TopLevel> ::= <FuncDecl>;
+<TopLevel> ::=
+    <FuncDecl> |
+    <Declaration>;
 
 <FuncDecl> ::=
     "fn" <IDENTIFIER> "(" <ParamList> ")" ":" <Type> "=" <Block> ";" |
