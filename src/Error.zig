@@ -65,6 +65,7 @@ kind: union(enum) {
     main_has_params,
     // Constant foldin
     division_by_zero,
+    call_in_toplevel,
     // Symbol resolution
     redeclaration: []const u8,
     undeclared_ref,
@@ -198,6 +199,11 @@ pub fn print(self: *const Self, source: []const u8, writer: anytype) !void {
 
         .division_by_zero => {
             try writer.print("Division by zero\n", .{});
+            try printReference(self.where.?, source, writer);
+        },
+
+        .call_in_toplevel => {
+            try writer.print("Function call in toplevel declaration\n", .{});
             try printReference(self.where.?, source, writer);
         },
 

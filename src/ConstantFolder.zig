@@ -104,7 +104,9 @@ fn foldNode(self: *Self, id: usize) !void {
             try self.foldNode(v.expr);
             switch (self.symtab.symbols.items[v.symbol].kind.variable) {
                 .global => |*w| {
-                    w.* = self.getConstOrNull(v.expr).?;
+                    // insert nonsense value if not evaluated since
+                    // compilation will terminate anyway
+                    w.* = self.getConstOrNull(v.expr) orelse 0xaa;
                 },
                 else => {},
             }
@@ -153,6 +155,13 @@ fn foldNode(self: *Self, id: usize) !void {
 
         // CALL
         .call => |v| {
+            if (self.top_level) {
+                try self.pushError(.{
+                    .stage = .constant_folding,
+                    .where = v.name.where,
+                    .kind = .call_in_toplevel,
+                });
+            }
             if (v.args) |args| {
                 try self.foldNode(args);
             }
