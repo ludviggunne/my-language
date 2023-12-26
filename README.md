@@ -22,8 +22,8 @@ Run `zig build`
 The only currently supported types are 64-bit signed integers and booleans
 (which are also 64-bit...)
 ```
-let x: int = 69;
-let nice: bool = true;
+let x: int = 0;
+let y: bool = true;
 ```
 Types of variables may also be inferred:
 ```
@@ -44,12 +44,12 @@ print x; # prints 0
 ```
 fn isEven(n: int): bool = {
     return n % 2 == 0;
-}
+};
 ```
 Return types may also be inferred (if the function is recursive, it must have a
 return statement with a specified type **before** the first call to itself).
 ```
-fn add(x: int, y: int) = { return x + y; } # return integer
+fn add(x: int, y: int) = { return x + y; }; # return integer
 ```
 All functions must return a value.
 The `main` function is the entry point of the program.
@@ -66,7 +66,7 @@ fn function(x: bool) = {
     if x {
         return 3;
     }
-}
+};
 ```
 but this does:
 ```
@@ -77,7 +77,7 @@ fn function(x: bool) = {
     } else {
         return 2;
     }
-}
+};
 ```
 
 ### Control flow
