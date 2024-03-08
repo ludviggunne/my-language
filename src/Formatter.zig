@@ -1,4 +1,3 @@
-
 const Self = @This();
 
 const Ast = @import("Ast.zig");
@@ -8,15 +7,13 @@ ast: *Ast,
 indents: usize,
 
 pub fn init(ast: *Ast) Self {
-
     return .{
-        .ast     = ast,
+        .ast = ast,
         .indents = 0,
     };
 }
 
 pub fn format(self: *Self, writer: anytype) !void {
-
     try self.formatNode(self.ast.root, writer);
 }
 
@@ -25,22 +22,18 @@ fn newLine(writer: anytype) !void {
 }
 
 fn indent(self: *Self) void {
-
     self.indents += 1;
 }
 
 fn unIndent(self: *Self) void {
-
     self.indents -= 1;
 }
 
 fn printIndent(self: *Self, writer: anytype) !void {
-
     for (0..self.indents) |_| try writer.print("    ", .{});
 }
 
 fn typeStr(type_: Type) []const u8 {
-
     return switch (type_) {
         .integer => "int",
         .boolean => "bool",
@@ -49,11 +42,9 @@ fn typeStr(type_: Type) []const u8 {
 }
 
 fn formatNode(self: *Self, id: usize, writer: anytype) !void {
-
     const node = self.ast.nodes.items[id];
 
     switch (node) {
-
         .empty => {},
 
         .break_statement => {
@@ -77,20 +68,27 @@ fn formatNode(self: *Self, id: usize, writer: anytype) !void {
         },
 
         .function => |v| {
-            try writer.print("fn {0s}(", .{ v.name.where, });
+            try writer.print("fn {0s}(", .{
+                v.name.where,
+            });
             if (v.params) |params| {
                 try self.formatNode(params, writer);
             }
             switch (v.return_type) {
                 .none => try writer.print(") = ", .{}),
-                else => try writer.print("): {0s} = ", .{ typeStr(v.return_type), }),
+                else => try writer.print("): {0s} = ", .{
+                    typeStr(v.return_type),
+                }),
             }
             try self.formatNode(v.body, writer);
             try newLine(writer);
         },
 
         .parameter_list => |v| {
-            try writer.print("{0s}: {1s}", .{ v.name.where, typeStr(v.type_), });
+            try writer.print("{0s}: {1s}", .{
+                v.name.where,
+                typeStr(v.type_),
+            });
             if (v.next) |next| {
                 try writer.print(", ", .{});
                 try self.formatNode(next, writer);
@@ -100,8 +98,13 @@ fn formatNode(self: *Self, id: usize, writer: anytype) !void {
         .declaration => |v| {
             try self.printIndent(writer);
             switch (v.type_) {
-                .none => try writer.print("let {0s} = ", .{ v.name.where, }),
-                else => try writer.print("let {0s}: {1s} = ", .{ v.name.where, typeStr(v.type_), }),
+                .none => try writer.print("let {0s} = ", .{
+                    v.name.where,
+                }),
+                else => try writer.print("let {0s}: {1s} = ", .{
+                    v.name.where,
+                    typeStr(v.type_),
+                }),
             }
             try self.formatNode(v.expr, writer);
             try writer.print(";", .{});
@@ -110,7 +113,10 @@ fn formatNode(self: *Self, id: usize, writer: anytype) !void {
 
         .assignment => |v| {
             try self.printIndent(writer);
-            try writer.print("{0s} {1s} ", .{ v.name.where, @tagName(v.operator.kind), });
+            try writer.print("{0s} {1s} ", .{
+                v.name.where,
+                @tagName(v.operator.kind),
+            });
             try self.formatNode(v.expr, writer);
             try writer.print(";", .{});
             try newLine(writer);
@@ -118,17 +124,23 @@ fn formatNode(self: *Self, id: usize, writer: anytype) !void {
 
         .binary => |v| {
             try self.formatNode(v.left, writer);
-            try writer.print(" {0s} ", .{ @tagName(v.operator.kind), });
+            try writer.print(" {0s} ", .{
+                @tagName(v.operator.kind),
+            });
             try self.formatNode(v.right, writer);
         },
 
         .unary => |v| {
-            try writer.print("{0s}", .{ @tagName(v.operator.kind), });
+            try writer.print("{0s}", .{
+                @tagName(v.operator.kind),
+            });
             try self.formatNode(v.operand, writer);
         },
 
         .call => |v| {
-            try writer.print("{0s}(", .{ v.name.where, });
+            try writer.print("{0s}(", .{
+                v.name.where,
+            });
             if (v.args) |args| {
                 try self.formatNode(args, writer);
             }
@@ -198,15 +210,18 @@ fn formatNode(self: *Self, id: usize, writer: anytype) !void {
             try newLine(writer);
         },
 
-        .variable => |v| try writer.print("{0s}", .{ v.name.where, }),
+        .variable => |v| try writer.print("{0s}", .{
+            v.name.where,
+        }),
 
-        .constant => |v| try writer.print("{0s}", .{ v.token.?.where, }),
+        .constant => |v| try writer.print("{0s}", .{
+            v.token.?.where,
+        }),
 
         .parenthesized => |v| {
             try writer.print("(", .{});
             try self.formatNode(v.content, writer);
             try writer.print(")", .{});
         },
-
     }
 }

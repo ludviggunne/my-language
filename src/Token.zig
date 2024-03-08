@@ -1,4 +1,3 @@
-
 const Self = @This();
 const Error = @import("Error.zig");
 
@@ -34,16 +33,16 @@ pub const Kind = enum {
     @"while",
     @"break",
     @"continue",
-    @"let",
+    let,
     @"fn",
     @"return",
-    @"print",
+    print,
     @"and",
     @"or",
-    @"int",
-    @"bool",
-    @"true",
-    @"false",
+    int,
+    bool,
+    true,
+    false,
 
     identifier,
     literal,
@@ -55,6 +54,5 @@ kind: Kind,
 where: []const u8,
 
 pub fn printReference(self: *Self, source: []const u8, writer: anytype) !void {
-
     try Error.printReference(self.where, source, writer);
 }

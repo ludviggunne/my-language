@@ -1,14 +1,13 @@
-
 const std = @import("std");
 const Self = @This();
 const Token = @import("Token.zig");
 const Type = @import("types.zig").Type;
 
 pub const Reference = struct {
-    line:        []const u8,
+    line: []const u8,
     line_number: usize,
-    line_index:  usize,
-    length:      usize,
+    line_index: usize,
+    length: usize,
 };
 
 stage: enum {
@@ -30,12 +29,12 @@ kind: union(enum) {
     unexpected_character: []const u8,
     unexpected_token: struct {
         expected: Token.Kind,
-        found:    Token.Kind,
+        found: Token.Kind,
     },
     // Parsing
     unexpected_token_oneof: struct {
         expected: []const Token.Kind,
-        found:    Token.Kind,
+        found: Token.Kind,
     },
     unexpected_eoi,
     // Type checking
@@ -45,20 +44,20 @@ kind: union(enum) {
     },
     operator_mismatch: struct {
         expected: Type,
-        found:    Type,
+        found: Type,
     },
     control_flow_mismatch,
     assignment_mismatch: struct {
         expected: Type,
-        found:    Type,
+        found: Type,
     },
     argument_mismatch: struct {
         expected: Type,
-        found:    Type,
+        found: Type,
     },
     return_mismatch: struct {
         expected: Type,
-        found:    Type,
+        found: Type,
     },
     no_return,
     main_non_int,
@@ -71,7 +70,7 @@ kind: union(enum) {
     undeclared_ref,
     param_count_mismatch: struct {
         expected: usize,
-        found:    usize,
+        found: usize,
     },
     param_overflow: usize,
     // Code generation
@@ -80,35 +79,39 @@ kind: union(enum) {
 },
 
 pub fn print(self: *const Self, source: []const u8, writer: anytype) !void {
-
-    try writer.print("Error during {s}: ", .{ @tagName(self.stage), });
+    try writer.print("Error during {s}: ", .{
+        @tagName(self.stage),
+    });
 
     switch (self.kind) {
-
         .invalid_option => |v| {
-            try writer.print("Invalid option: {s}\n", .{ v, });
+            try writer.print("Invalid option: {s}\n", .{
+                v,
+            });
         },
 
         .no_input_file => try writer.print("No input file\n", .{}),
 
-        .expected_arg => |v|
-            try writer.print("Expected argument after option {0s}\n", .{ v, }),
+        .expected_arg => |v| try writer.print("Expected argument after option {0s}\n", .{
+            v,
+        }),
 
         .unexpected_token => |v| {
-            try writer.print(
-                "Unexpected token \"{s}\": expected \"{s}\"\n",
-                .{
-                    @tagName(v.found),
-                    @tagName(v.expected),
-                }
-            );
+            try writer.print("Unexpected token \"{s}\": expected \"{s}\"\n", .{
+                @tagName(v.found),
+                @tagName(v.expected),
+            });
             try printReference(self.where.?, source, writer);
         },
 
         .unexpected_token_oneof => |v| {
-            try writer.print("Unexpected token \"{s}\": expected one of ", .{ @tagName(v.found), });
+            try writer.print("Unexpected token \"{s}\": expected one of ", .{
+                @tagName(v.found),
+            });
             for (v.expected) |expected| {
-                try writer.print("\"{s}\", ", .{ @tagName(expected), });
+                try writer.print("\"{s}\", ", .{
+                    @tagName(expected),
+                });
             }
             try writer.print("\n", .{});
             try printReference(self.where.?, source, writer);
@@ -120,13 +123,10 @@ pub fn print(self: *const Self, source: []const u8, writer: anytype) !void {
             if (v.left == .none or v.right == .none) {
                 try writer.print("Unable to infer type of expression", .{});
             } else {
-                try writer.print(
-                    "Type mismatch for binary operator: {s} =/= {s}\n",
-                    .{
-                        @tagName(v.left),
-                        @tagName(v.right),
-                    }
-                );
+                try writer.print("Type mismatch for binary operator: {s} =/= {s}\n", .{
+                    @tagName(v.left),
+                    @tagName(v.right),
+                });
             }
             try printReference(self.where.?, source, writer);
         },
@@ -150,10 +150,10 @@ pub fn print(self: *const Self, source: []const u8, writer: anytype) !void {
             if (v.found == .none) {
                 try writer.print("Unable to infer type of expression\n", .{});
             } else {
-                try writer.print(
-                    "Type mismatch: can't assign variable of type {0s} to {1s}\n",
-                    .{ @tagName(v.expected), @tagName(v.found), }
-                );
+                try writer.print("Type mismatch: can't assign variable of type {0s} to {1s}\n", .{
+                    @tagName(v.expected),
+                    @tagName(v.found),
+                });
             }
             try printReference(self.where.?, source, writer);
         },
@@ -162,10 +162,10 @@ pub fn print(self: *const Self, source: []const u8, writer: anytype) !void {
             if (v.found == .none) {
                 try writer.print("Unable to infer type of expression\n", .{});
             } else {
-                try writer.print(
-                    "Argument type mismatch: expected {0s}, found {1s}\n",
-                    .{ @tagName(v.expected), @tagName(v.found), }
-                );
+                try writer.print("Argument type mismatch: expected {0s}, found {1s}\n", .{
+                    @tagName(v.expected),
+                    @tagName(v.found),
+                });
             }
             try printReference(self.where.?, source, writer);
         },
@@ -174,16 +174,18 @@ pub fn print(self: *const Self, source: []const u8, writer: anytype) !void {
             if (v.found == .none) {
                 try writer.print("Unable to infer type of expression\n", .{});
             } else {
-                try writer.print(
-                    "Type mismatch: Can't return {0s} from function with declared return type {1s}\n",
-                    .{ @tagName(v.found), @tagName(v.expected), }
-                );
+                try writer.print("Type mismatch: Can't return {0s} from function with declared return type {1s}\n", .{
+                    @tagName(v.found),
+                    @tagName(v.expected),
+                });
             }
             try printReference(self.where.?, source, writer);
         },
 
         .no_return => {
-            try writer.print("Function {0s} may not return.\n", .{ self.where.?, });
+            try writer.print("Function {0s} may not return.\n", .{
+                self.where.?,
+            });
             try printReference(self.where.?, source, writer);
         },
 
@@ -208,32 +210,43 @@ pub fn print(self: *const Self, source: []const u8, writer: anytype) !void {
         },
 
         .redeclaration => |where| {
-            try writer.print("Redeclaration of symbol {s}\n", .{ self.where.?, });
+            try writer.print("Redeclaration of symbol {s}\n", .{
+                self.where.?,
+            });
             try printReference(self.where.?, source, writer);
             try writer.print("Declared here:\n", .{});
             try printReference(where, source, writer);
         },
 
         .undeclared_ref => {
-            try writer.print("Reference to undeclared symbol {s}\n", .{ self.where.?, });
+            try writer.print("Reference to undeclared symbol {s}\n", .{
+                self.where.?,
+            });
             try printReference(self.where.?, source, writer);
         },
 
         .param_count_mismatch => |v| {
             try writer.print(
                 "Expected {d} argument(s), found {d}\n",
-                .{ v.expected, v.found, },
+                .{
+                    v.expected,
+                    v.found,
+                },
             );
             try printReference(self.where.?, source, writer);
         },
 
         .param_overflow => |v| {
-            try writer.print("Max 4 parameters allowed, {d} were declared\n", .{ v, });
+            try writer.print("Max 4 parameters allowed, {d} were declared\n", .{
+                v,
+            });
             try printReference(self.where.?, source, writer);
         },
 
         .boc_outside_loop => {
-            try writer.print("Found {s} statement outside loop\n", .{ self.where.?, });
+            try writer.print("Found {s} statement outside loop\n", .{
+                self.where.?,
+            });
             try printReference(self.where.?, source, writer);
         },
 
@@ -251,7 +264,6 @@ pub fn print(self: *const Self, source: []const u8, writer: anytype) !void {
 }
 
 pub fn reference(where: []const u8, source: []const u8) Reference {
-
     const source_raw: *const u8 = @ptrCast(source);
     const where_raw: *const u8 = @ptrCast(where);
     const offset = @intFromPtr(where_raw) - @intFromPtr(source_raw);
@@ -261,7 +273,6 @@ pub fn reference(where: []const u8, source: []const u8) Reference {
     var line_number: usize = 1;
     var search_begin = true;
     for (source, 0..) |c, i| {
-
         if (i == offset) {
             search_begin = false;
         }
@@ -281,28 +292,25 @@ pub fn reference(where: []const u8, source: []const u8) Reference {
     const line_index = offset - line_begin;
 
     return .{
-        .line        = line,
+        .line = line,
         .line_number = line_number,
-        .line_index  = line_index,
-        .length      = where.len,
+        .line_index = line_index,
+        .length = where.len,
     };
 }
 
 pub fn printReference(where: []const u8, source: []const u8, writer: anytype) !void {
-
     const ref = reference(where, source);
-    try writer.print("Line {d}:\n{s}\n", .{ ref.line_number, ref.line, });
+    try writer.print("Line {d}:\n{s}\n", .{
+        ref.line_number,
+        ref.line,
+    });
     for (0..ref.line_index) |_| try writer.print(" ", .{});
     for (0..ref.length) |_| try writer.print("~", .{});
     try writer.print("\n", .{});
 }
 
-pub fn printErrorsAndExit(
-    stage: anytype,
-    source: []const u8,
-    writer: anytype
-) !noreturn {
-
+pub fn printErrorsAndExit(stage: anytype, source: []const u8, writer: anytype) !noreturn {
     for (stage.errors.items) |err| {
         try err.print(source, writer);
     }

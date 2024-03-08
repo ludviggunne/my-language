@@ -1,17 +1,15 @@
-
 const std = @import("std");
 
-const Parser    = @import("Parser.zig");
-const Lexer     = @import("Lexer.zig");
-const Ast       = @import("Ast.zig");
+const Parser = @import("Parser.zig");
+const Lexer = @import("Lexer.zig");
+const Ast = @import("Ast.zig");
 const Formatter = @import("Formatter.zig");
 
 pub fn main() !u8 {
-
     const stdout = std.io.getStdOut().writer();
-    const stdin  = std.io.getStdIn();
+    const stdin = std.io.getStdIn();
 
-    var gpa = std.heap.GeneralPurposeAllocator(.{}) {};
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     var allocator = gpa.allocator();
     defer _ = gpa.deinit();
 

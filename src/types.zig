@@ -1,4 +1,3 @@
-
 pub const Type = enum {
     integer,
     boolean,

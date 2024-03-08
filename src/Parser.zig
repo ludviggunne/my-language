@@ -1,15 +1,14 @@
-
 // TODO: sync toplevel statements
 
 const std = @import("std");
 
 const Self = @This();
 
-const Ast   = @import("Ast.zig");
+const Ast = @import("Ast.zig");
 const Lexer = @import("Lexer.zig");
 const Token = @import("Token.zig");
 const Error = @import("Error.zig");
-const Type  = @import("types.zig").Type;
+const Type = @import("types.zig").Type;
 
 const Action = enum {
     take,
@@ -22,11 +21,10 @@ const SyncResult = enum {
 };
 
 lexer: *Lexer,
-ast:   *Ast,
+ast: *Ast,
 errors: std.ArrayList(Error),
 
 pub fn init(lexer: *Lexer, ast: *Ast, allocator: std.mem.Allocator) Self {
-
     return .{
         .lexer = lexer,
         .ast = ast,
@@ -39,7 +37,6 @@ pub fn deinit(self: *Self) void {
 }
 
 pub fn parse(self: *Self) !void {
-
     self.ast.root = try self.topLevelList();
     if (self.errors.items.len > 0) {
         return error.ParseError;
@@ -47,27 +44,17 @@ pub fn parse(self: *Self) !void {
 }
 
 fn pushError(self: *Self, err: Error) !void {
-
-   try self.errors.append(err);
-   return error.ParseError;
+    try self.errors.append(err);
+    return error.ParseError;
 }
 
 fn sync(self: *Self) !SyncResult {
-
     while (try self.lexer.peek()) |token| {
-
         switch (token.kind) {
 
             // Appears at beginning of statement
             //  so we can sync here
-            .@"{",
-            .@"let",
-            .@"if",
-            .@"while",
-            .@"return",
-            .@"print",
-            .@"break",
-            .@"continue" => return .statement,
+            .@"{", .let, .@"if", .@"while", .@"return", .print, .@"break", .@"continue" => return .statement,
 
             // End of block
             .@"}" => return .empty,
@@ -83,16 +70,10 @@ fn sync(self: *Self) !SyncResult {
                 _ = try self.lexer.take();
             },
         }
-
     } else return .empty;
 }
 
-fn matchOrNull(
-    self: *Self,
-    comptime action: Action,
-    kind: Token.Kind
-) !?Token {
-
+fn matchOrNull(self: *Self, comptime action: Action, kind: Token.Kind) !?Token {
     if (try self.lexer.peek()) |peek| {
         if (peek.kind == kind) {
             if (action == .take) {
@@ -105,14 +86,8 @@ fn matchOrNull(
     return null;
 }
 
-fn matchOneOfOrNull(
-    self: *Self,
-    comptime action: Action,
-    comptime matches: []const Token.Kind
-) !?Token {
-
+fn matchOneOfOrNull(self: *Self, comptime action: Action, comptime matches: []const Token.Kind) !?Token {
     if (try self.lexer.peek()) |peek| {
-
         inline for (matches) |kind| {
             if (peek.kind == kind) {
                 if (action == .take) {
@@ -126,12 +101,7 @@ fn matchOneOfOrNull(
     return null;
 }
 
-fn expect(
-    self: *Self,
-    comptime action: Action,
-    expected: Token.Kind
-) !Token {
-
+fn expect(self: *Self, comptime action: Action, expected: Token.Kind) !Token {
     if (try self.lexer.peek()) |found| {
         if (found.kind == expected) {
             if (action == .take) {
@@ -142,33 +112,26 @@ fn expect(
             try self.pushError(.{
                 .stage = .parsing,
                 .where = found.where,
-                .kind  = .{
+                .kind = .{
                     .unexpected_token = .{
                         .expected = expected,
-                        .found    = found.kind,
+                        .found = found.kind,
                     },
                 },
             });
             unreachable;
         }
     } else {
-
         try self.pushError(.{
             .stage = .parsing,
-            .kind  = .unexpected_eoi,
+            .kind = .unexpected_eoi,
         });
         unreachable;
     }
 }
 
-fn expectOneOf(
-    self: *Self,
-    comptime action: Action,
-    comptime expected_list: []const Token.Kind
-) !Token {
-
+fn expectOneOf(self: *Self, comptime action: Action, comptime expected_list: []const Token.Kind) !Token {
     if (try self.lexer.peek()) |found| {
-
         inline for (expected_list) |expected| {
             if (found.kind == expected) {
                 if (action == .take) {
@@ -180,27 +143,25 @@ fn expectOneOf(
             try self.pushError(.{
                 .stage = .parsing,
                 .where = found.where,
-                .kind  = .{
+                .kind = .{
                     .unexpected_token_oneof = .{
                         .expected = expected_list,
-                        .found    = found.kind,
+                        .found = found.kind,
                     },
                 },
             });
             unreachable;
         }
     } else {
-
         try self.pushError(.{
             .stage = .parsing,
-            .kind  = .unexpected_eoi,
+            .kind = .unexpected_eoi,
         });
         unreachable;
     }
 }
 
 fn topLevelList(self: *Self) anyerror!usize {
-
     const decl = try self.topLevel();
     const next = if (try self.lexer.peek()) |_| try self.topLevelList() else null;
 
@@ -213,18 +174,19 @@ fn topLevelList(self: *Self) anyerror!usize {
 }
 
 fn topLevel(self: *Self) anyerror!usize {
-
-    const begin = try self.expectOneOf(.peek, &[_] Token.Kind { .@"fn", .@"let", });
+    const begin = try self.expectOneOf(.peek, &[_]Token.Kind{
+        .@"fn",
+        .let,
+    });
 
     return switch (begin.kind) {
         .@"fn" => try self.function(),
-        .@"let" => try self.declaration(true),
+        .let => try self.declaration(true),
         else => unreachable,
     };
 }
 
 fn function(self: *Self) anyerror!usize {
-
     _ = try self.lexer.take(); // fn
     const name = try self.expect(.take, .identifier);
     _ = try self.expect(.take, .@"(");
@@ -241,7 +203,7 @@ fn function(self: *Self) anyerror!usize {
     } else {
         try self.pushError(.{
             .stage = .parsing,
-            .kind  = .unexpected_eoi,
+            .kind = .unexpected_eoi,
         });
     }
 
@@ -249,13 +211,13 @@ fn function(self: *Self) anyerror!usize {
 
     if (try self.matchOrNull(.peek, .@":")) |_| {
         _ = try self.expect(.take, .@":");
-        const return_token = try self.expectOneOf(
-            .take,
-            &[_] Token.Kind { .@"int", .@"bool", }
-        );
+        const return_token = try self.expectOneOf(.take, &[_]Token.Kind{
+            .int,
+            .bool,
+        });
         return_type = switch (return_token.kind) {
-            .@"int"  => .integer,
-            .@"bool" => .boolean,
+            .int => .integer,
+            .bool => .boolean,
             else => unreachable,
         };
     } else return_type = .none;
@@ -267,28 +229,30 @@ fn function(self: *Self) anyerror!usize {
 
     return self.ast.push(.{
         .function = .{
-            .name        = name,
-            .params      = params,
+            .name = name,
+            .params = params,
             .return_type = return_type,
-            .body        = body,
+            .body = body,
         },
     });
 }
 
 fn parameterList(self: *Self) anyerror!usize {
-
     const name = try self.expect(.take, .identifier);
     _ = try self.expect(.take, .@":");
-    const type_token = try self.expectOneOf(
-        .take,
-        &[_] Token.Kind { .@"int", .@"bool", }
-    );
+    const type_token = try self.expectOneOf(.take, &[_]Token.Kind{
+        .int,
+        .bool,
+    });
     const type_: Type = switch (type_token.kind) {
-        .@"int" => .integer,
-        .@"bool" => .boolean,
+        .int => .integer,
+        .bool => .boolean,
         else => unreachable, // invalid type identifier
     };
-    const delimiter = try self.expectOneOf(.take, &[_]Token.Kind { .@",", .@")", });
+    const delimiter = try self.expectOneOf(.take, &[_]Token.Kind{
+        .@",",
+        .@")",
+    });
 
     const next = switch (delimiter.kind) {
         .@"," => try self.parameterList(),
@@ -306,10 +270,11 @@ fn parameterList(self: *Self) anyerror!usize {
 }
 
 fn block(self: *Self) anyerror!usize {
-
     _ = try self.expect(.take, .@"{");
     const content = if (try self.matchOrNull(.peek, .@"}")) |_|
-        try self.ast.push(.empty) else try self.statementList();
+        try self.ast.push(.empty)
+    else
+        try self.statementList();
     _ = try self.expect(.take, .@"}");
 
     return self.ast.push(.{
@@ -320,36 +285,35 @@ fn block(self: *Self) anyerror!usize {
 }
 
 fn statementList(self: *Self) anyerror!usize {
-
-    const begin = try self.expectOneOf(.peek, &[_] Token.Kind {
+    const begin = try self.expectOneOf(.peek, &[_]Token.Kind{
         .@"{",
         .@"}",
-        .@"let",
+        .let,
         .@"if",
         .@"while",
         .@"return",
         .@"break",
         .@"continue",
-        .@"print",
+        .print,
         .identifier,
     });
 
-    const stmnt = switch(begin.kind) {
-        .@"{"        => self.block(),
-        .@"let"      => self.declaration(false),
-        .@"if"       => self.ifStatement(),
-        .@"while"    => self.whileStatement(),
-        .@"return"   => self.returnStatement(),
-        .@"break"    => self.breakStatement(),
+    const stmnt = switch (begin.kind) {
+        .@"{" => self.block(),
+        .let => self.declaration(false),
+        .@"if" => self.ifStatement(),
+        .@"while" => self.whileStatement(),
+        .@"return" => self.returnStatement(),
+        .@"break" => self.breakStatement(),
         .@"continue" => self.continueStatement(),
-        .@"print"    => self.printStatement(),
-        .identifier  => self.assignment(),
-        .@"}"        => error.ParseError, // sync
-        else         => unreachable,
+        .print => self.printStatement(),
+        .identifier => self.assignment(),
+        .@"}" => error.ParseError, // sync
+        else => unreachable,
     } catch |err| recover: {
         if (err == error.ParseError) {
             break :recover switch (try self.sync()) {
-                .empty     => try self.ast.push(.empty),
+                .empty => try self.ast.push(.empty),
                 .statement => try self.statementList(),
             };
         } else return err; // memory error
@@ -391,8 +355,7 @@ fn continueStatement(self: *Self) anyerror!usize {
 }
 
 fn declaration(self: *Self, global: bool) anyerror!usize {
-
-    _ = try self.expect(.take, .@"let");
+    _ = try self.expect(.take, .let);
     const name = try self.expect(.take, .identifier);
 
     var type_: Type = undefined;
@@ -402,18 +365,17 @@ fn declaration(self: *Self, global: bool) anyerror!usize {
         // Type annotation
         _ = try self.lexer.take();
 
-        const type_token = try self.expectOneOf(
-            .take,
-            &[_] Token.Kind { .@"int", .@"bool", }
-        );
+        const type_token = try self.expectOneOf(.take, &[_]Token.Kind{
+            .int,
+            .bool,
+        });
 
         type_ = switch (type_token.kind) {
-            .@"int" => .integer,
-            .@"bool" => .boolean,
+            .int => .integer,
+            .bool => .boolean,
             else => unreachable, // invalid type identifier
         };
     } else {
-
         type_ = .none;
     }
 
@@ -423,27 +385,24 @@ fn declaration(self: *Self, global: bool) anyerror!usize {
 
     return self.ast.push(.{
         .declaration = .{
-            .name  = name,
+            .name = name,
             .type_ = type_,
             .global = global,
-            .expr  = expr,
+            .expr = expr,
         },
     });
 }
 
 fn assignment(self: *Self) anyerror!usize {
-
     const name = try self.expect(.take, .identifier);
-    const operator = try self.expectOneOf(.take,
-        &[_] Token.Kind {
-            .@"=",
-            .@"+=",
-            .@"-=",
-            .@"*=",
-            .@"/=",
-            .@"%=",
-        }
-    );
+    const operator = try self.expectOneOf(.take, &[_]Token.Kind{
+        .@"=",
+        .@"+=",
+        .@"-=",
+        .@"*=",
+        .@"/=",
+        .@"%=",
+    });
     const expr = try self.expression();
     _ = try self.expect(.take, .@";");
 
@@ -457,12 +416,13 @@ fn assignment(self: *Self) anyerror!usize {
 }
 
 fn ifStatement(self: *Self) anyerror!usize {
-
     const keyword = try self.expect(.take, .@"if");
     const condition = try self.expression();
     const if_block = try self.block();
     const else_block = if (try self.matchOrNull(.take, .@"else")) |_|
-        try self.block() else null;
+        try self.block()
+    else
+        null;
 
     return self.ast.push(.{
         .if_statement = .{
@@ -475,7 +435,6 @@ fn ifStatement(self: *Self) anyerror!usize {
 }
 
 fn whileStatement(self: *Self) anyerror!usize {
-
     const keyword = try self.expect(.take, .@"while");
     const condition = try self.expression();
     const while_block = try self.block();
@@ -490,18 +449,18 @@ fn whileStatement(self: *Self) anyerror!usize {
 }
 
 fn expression(self: *Self) anyerror!usize {
-
     var left = try self.equality();
 
-    while (try self.matchOneOfOrNull(.peek,
-        &[_] Token.Kind { .@"and", .@"or", })) |operator|
-    {
+    while (try self.matchOneOfOrNull(.peek, &[_]Token.Kind{
+        .@"and",
+        .@"or",
+    })) |operator| {
         _ = try self.lexer.take(); // operator
         const right = try self.equality();
         left = try self.ast.push(.{
             .binary = .{
-                .left     = left,
-                .right    = right,
+                .left = left,
+                .right = right,
                 .operator = operator,
             },
         });
@@ -511,18 +470,18 @@ fn expression(self: *Self) anyerror!usize {
 }
 
 fn equality(self: *Self) anyerror!usize {
-
     var left = try self.comparison();
 
-    while (try self.matchOneOfOrNull(.peek,
-        &[_] Token.Kind { .@"==", .@"!=", })) |operator|
-    {
+    while (try self.matchOneOfOrNull(.peek, &[_]Token.Kind{
+        .@"==",
+        .@"!=",
+    })) |operator| {
         _ = try self.lexer.take(); // operator
         const right = try self.comparison();
         left = try self.ast.push(.{
             .binary = .{
-                .left     = left,
-                .right    = right,
+                .left = left,
+                .right = right,
                 .operator = operator,
             },
         });
@@ -532,18 +491,20 @@ fn equality(self: *Self) anyerror!usize {
 }
 
 fn comparison(self: *Self) anyerror!usize {
-
     var left = try self.sum();
 
-    while (try self.matchOneOfOrNull(.peek,
-        &[_] Token.Kind { .@"<", .@"<=", .@">", .@">=", })) |operator|
-    {
+    while (try self.matchOneOfOrNull(.peek, &[_]Token.Kind{
+        .@"<",
+        .@"<=",
+        .@">",
+        .@">=",
+    })) |operator| {
         _ = try self.lexer.take(); // operator
         const right = try self.sum();
         left = try self.ast.push(.{
             .binary = .{
-                .left     = left,
-                .right    = right,
+                .left = left,
+                .right = right,
                 .operator = operator,
             },
         });
@@ -553,18 +514,18 @@ fn comparison(self: *Self) anyerror!usize {
 }
 
 fn sum(self: *Self) anyerror!usize {
-
     var left = try self.product();
 
-    while (try self.matchOneOfOrNull(.peek,
-        &[_] Token.Kind { .@"+", .@"-", })) |operator|
-    {
+    while (try self.matchOneOfOrNull(.peek, &[_]Token.Kind{
+        .@"+",
+        .@"-",
+    })) |operator| {
         _ = try self.lexer.take(); // operator
         const right = try self.product();
         left = try self.ast.push(.{
             .binary = .{
-                .left     = left,
-                .right    = right,
+                .left = left,
+                .right = right,
                 .operator = operator,
             },
         });
@@ -574,18 +535,19 @@ fn sum(self: *Self) anyerror!usize {
 }
 
 fn product(self: *Self) anyerror!usize {
-
     var left = try self.factor();
 
-    while (try self.matchOneOfOrNull(.peek,
-            &[_] Token.Kind { .@"*", .@"/", .@"%", })) |operator|
-    {
+    while (try self.matchOneOfOrNull(.peek, &[_]Token.Kind{
+        .@"*",
+        .@"/",
+        .@"%",
+    })) |operator| {
         _ = try self.lexer.take(); // operator
         const right = try self.factor();
         left = try self.ast.push(.{
             .binary = .{
-                .left     = left,
-                .right    = right,
+                .left = left,
+                .right = right,
                 .operator = operator,
             },
         });
@@ -595,21 +557,17 @@ fn product(self: *Self) anyerror!usize {
 }
 
 fn factor(self: *Self) anyerror!usize {
-
-    const begin = try self.expectOneOf(.peek,
-        &[_] Token.Kind {
-            .@"-",
-            .@"!",
-            .@"(",
-            .@"true",
-            .@"false",
-            .identifier,
-            .literal,
-        }
-    );
+    const begin = try self.expectOneOf(.peek, &[_]Token.Kind{
+        .@"-",
+        .@"!",
+        .@"(",
+        .true,
+        .false,
+        .identifier,
+        .literal,
+    });
 
     return switch (begin.kind) {
-
         .identifier => try self.reference(),
 
         .literal => literal: {
@@ -622,14 +580,12 @@ fn factor(self: *Self) anyerror!usize {
             });
         },
 
-        .@"true", .@"false" => boolean: {
+        .true, .false => boolean: {
             _ = try self.lexer.take(); // true / false
-            break :boolean try self.ast.push(.{
-                .constant = .{
-                    .type_ = .boolean,
-                    .token = begin,
-                }
-            });
+            break :boolean try self.ast.push(.{ .constant = .{
+                .type_ = .boolean,
+                .token = begin,
+            } });
         },
 
         .@"-", .@"!" => try self.unary(),
@@ -650,13 +606,13 @@ fn factor(self: *Self) anyerror!usize {
 }
 
 fn reference(self: *Self) anyerror!usize {
-
     const name = try self.expect(.take, .identifier);
 
     if (try self.matchOrNull(.take, .@"(")) |_| {
-
         const args = if (try self.matchOrNull(.take, .@")")) |_|
-            null else try self.argumentList();
+            null
+        else
+            try self.argumentList();
 
         return self.ast.push(.{
             .call = .{
@@ -665,7 +621,6 @@ fn reference(self: *Self) anyerror!usize {
             },
         });
     } else {
-
         return self.ast.push(.{
             .variable = .{
                 .name = name,
@@ -675,9 +630,11 @@ fn reference(self: *Self) anyerror!usize {
 }
 
 fn argumentList(self: *Self) anyerror!usize {
-
     const expr = try self.expression();
-    const delimiter = try self.expectOneOf(.take, &[_] Token.Kind { .@",", .@")", });
+    const delimiter = try self.expectOneOf(.take, &[_]Token.Kind{
+        .@",",
+        .@")",
+    });
 
     const next = switch (delimiter.kind) {
         .@"," => try self.argumentList(),
@@ -695,7 +652,6 @@ fn argumentList(self: *Self) anyerror!usize {
 }
 
 fn returnStatement(self: *Self) anyerror!usize {
-
     const keyword = try self.expect(.take, .@"return");
     const expr = try self.expression();
     _ = try self.expect(.take, .@";");
@@ -709,8 +665,7 @@ fn returnStatement(self: *Self) anyerror!usize {
 }
 
 fn printStatement(self: *Self) anyerror!usize {
-
-    _ = try self.expect(.take, .@"print");
+    _ = try self.expect(.take, .print);
     const expr = try self.expression();
     _ = try self.expect(.take, .@";");
 
@@ -722,8 +677,10 @@ fn printStatement(self: *Self) anyerror!usize {
 }
 
 fn unary(self: *Self) anyerror!usize {
-
-    const operator = try self.expectOneOf(.take, &[_] Token.Kind { .@"-", .@"!", });
+    const operator = try self.expectOneOf(.take, &[_]Token.Kind{
+        .@"-",
+        .@"!",
+    });
     const operand = try self.factor();
 
     return self.ast.push(.{

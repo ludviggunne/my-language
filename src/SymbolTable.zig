@@ -1,10 +1,9 @@
-
 const std = @import("std");
 const Self = @This();
 
-const Ast   = @import("Ast.zig");
+const Ast = @import("Ast.zig");
 const Error = @import("Error.zig");
-const Type  = @import("types.zig").Type;
+const Type = @import("types.zig").Type;
 
 const Symbol = struct {
     name: []const u8,
@@ -13,7 +12,7 @@ const Symbol = struct {
         function: struct {
             // node index of parameter list
             //  so we can check types
-            params:      ?usize,
+            params: ?usize,
             param_count: usize,
             local_count: usize,
         },
@@ -21,31 +20,30 @@ const Symbol = struct {
             global: i64,
             local: usize,
             param: usize,
-        }
+        },
     },
 };
 
-allocator:      std.mem.Allocator,
-ast:            *Ast,
-errors:         std.ArrayList(Error),
-symbols:        std.ArrayList(Symbol),
-scopes:         std.ArrayList(std.StringHashMap(usize)),
-current_scope:  usize,
-local_counter:  usize,
-arg_counter:    usize,
+allocator: std.mem.Allocator,
+ast: *Ast,
+errors: std.ArrayList(Error),
+symbols: std.ArrayList(Symbol),
+scopes: std.ArrayList(std.StringHashMap(usize)),
+current_scope: usize,
+local_counter: usize,
+arg_counter: usize,
 symbol_counter: usize,
 
 pub fn init(ast: *Ast, allocator: std.mem.Allocator) !Self {
-
     var self: Self = .{
-        .allocator      = allocator,
-        .ast            = ast,
-        .errors         = std.ArrayList(Error).init(allocator),
-        .symbols        = std.ArrayList(Symbol).init(allocator),
-        .scopes         = std.ArrayList(std.StringHashMap(usize)).init(allocator),
-        .current_scope  = 0,
-        .local_counter  = 0,
-        .arg_counter    = 0,
+        .allocator = allocator,
+        .ast = ast,
+        .errors = std.ArrayList(Error).init(allocator),
+        .symbols = std.ArrayList(Symbol).init(allocator),
+        .scopes = std.ArrayList(std.StringHashMap(usize)).init(allocator),
+        .current_scope = 0,
+        .local_counter = 0,
+        .arg_counter = 0,
         .symbol_counter = 0,
     };
 
@@ -55,7 +53,6 @@ pub fn init(ast: *Ast, allocator: std.mem.Allocator) !Self {
 }
 
 pub fn deinit(self: *Self) void {
-
     for (self.scopes.items) |*scope| {
         scope.deinit();
     }
@@ -70,7 +67,6 @@ pub fn getSymbol(self: *Self, symbol: usize) Symbol {
 }
 
 pub fn resolve(self: *Self) !void {
-
     try self.resolveNode(self.ast.root);
     if (self.errors.items.len > 0) {
         return error.ResolutionError;
@@ -78,13 +74,11 @@ pub fn resolve(self: *Self) !void {
 }
 
 fn pushError(self: *Self, err: Error) !void {
-
     try self.errors.append(err);
     return error.ResolutionError;
 }
 
 fn pushScope(self: *Self) !void {
-
     self.current_scope += 1;
 
     if (self.current_scope == self.scopes.items.len) {
@@ -93,13 +87,11 @@ fn pushScope(self: *Self) !void {
 }
 
 fn popScope(self: *Self) void {
-
     self.scopes.items[self.current_scope].clearRetainingCapacity();
     self.current_scope -= 1;
 }
 
 fn setParamCount(self: *Self, id: usize, count: usize) void {
-
     var symbol = &self.symbols.items[id];
     switch (symbol.kind) {
         .function => |*v| v.param_count = count,
@@ -108,7 +100,6 @@ fn setParamCount(self: *Self, id: usize, count: usize) void {
 }
 
 fn setLocalCount(self: *Self, id: usize, count: usize) void {
-
     var symbol = &self.symbols.items[id];
     switch (symbol.kind) {
         .function => |*v| v.local_count = count,
@@ -117,7 +108,6 @@ fn setLocalCount(self: *Self, id: usize, count: usize) void {
 }
 
 fn pushSymbol(self: *Self, symbol: Symbol) !usize {
-
     const index = self.symbols.items.len;
     try self.symbols.append(symbol);
     _ = try self.scopes.items[self.current_scope].put(symbol.name, index);
@@ -125,7 +115,6 @@ fn pushSymbol(self: *Self, symbol: Symbol) !usize {
 }
 
 fn matchParamCount(self: *Self, symbol_1: Symbol, symbol_2: Symbol) !void {
-
     switch (symbol_1.kind) {
         .function => |v1| switch (symbol_2.kind) {
             .function => |v2| {
@@ -142,14 +131,13 @@ fn matchParamCount(self: *Self, symbol_1: Symbol, symbol_2: Symbol) !void {
                     });
                 }
             },
-            else => {}
+            else => {},
         },
-        else => {}
+        else => {},
     }
 }
 
 fn declare(self: *Self, symbol: Symbol) !usize {
-
     const scope_id = switch (symbol.kind) {
         .variable => self.current_scope,
         .function => 0,
@@ -162,7 +150,9 @@ fn declare(self: *Self, symbol: Symbol) !usize {
         try self.pushError(.{
             .stage = .symbol_resolution,
             .where = symbol.name,
-            .kind = .{ .redeclaration = collision.name, },
+            .kind = .{
+                .redeclaration = collision.name,
+            },
         });
         unreachable;
     }
@@ -180,7 +170,6 @@ fn reference(self: *Self, symbol: Symbol) !usize {
     };
 
     while (true) : (scope_id -= 1) {
-
         var scope = &self.scopes.items[scope_id];
 
         if (scope.get(symbol.name)) |match_id| {
@@ -203,14 +192,9 @@ fn reference(self: *Self, symbol: Symbol) !usize {
 }
 
 fn resolveNode(self: *Self, id: usize) !void {
-
-    var node = &self.ast.nodes.items[id];
+    const node = &self.ast.nodes.items[id];
     switch (node.*) {
-
-        .empty,
-        .break_statement,
-        .continue_statement,
-        .constant  => {},
+        .empty, .break_statement, .continue_statement, .constant => {},
 
         .parenthesized => |v| try self.resolveNode(v.content),
 
@@ -228,7 +212,7 @@ fn resolveNode(self: *Self, id: usize) !void {
                     .type_ = v.return_type,
                     .kind = .{
                         .function = .{
-                            .params      = v.params,
+                            .params = v.params,
                             .param_count = undefined,
                             .local_count = undefined,
                         },
@@ -244,7 +228,9 @@ fn resolveNode(self: *Self, id: usize) !void {
                 try self.pushError(.{
                     .stage = .symbol_resolution,
                     .where = v.name.where,
-                    .kind = .{ .param_overflow = self.local_counter, },
+                    .kind = .{
+                        .param_overflow = self.local_counter,
+                    },
                 });
                 unreachable;
             }
@@ -262,9 +248,11 @@ fn resolveNode(self: *Self, id: usize) !void {
 
         .parameter_list => |*v| {
             v.symbol = try self.declare(.{
-                .name  = v.name.where,
+                .name = v.name.where,
                 .type_ = v.type_,
-                .kind  = .{ .variable = .{ .param = self.local_counter }, },
+                .kind = .{
+                    .variable = .{ .param = self.local_counter },
+                },
             });
             self.local_counter += 1;
             if (v.next) |next| {
@@ -292,12 +280,14 @@ fn resolveNode(self: *Self, id: usize) !void {
             v.symbol = try self.declare(.{
                 .name = v.name.where,
                 .type_ = v.type_,
-                .kind = .{
-                    .variable = if (self.current_scope == 0)
-                        .{ .global = undefined, }
-                        else
-                        .{ .local = self.local_counter, }
-                },
+                .kind = .{ .variable = if (self.current_scope == 0)
+                    .{
+                        .global = undefined,
+                    }
+                else
+                    .{
+                        .local = self.local_counter,
+                    } },
             });
             if (self.current_scope > 0) {
                 self.local_counter += 1;
@@ -308,7 +298,9 @@ fn resolveNode(self: *Self, id: usize) !void {
             v.symbol = try self.reference(.{
                 .name = v.name.where,
                 .type_ = undefined,
-                .kind = .{ .variable = undefined, },
+                .kind = .{
+                    .variable = undefined,
+                },
             });
             try self.resolveNode(v.expr);
         },
@@ -323,7 +315,7 @@ fn resolveNode(self: *Self, id: usize) !void {
                 .type_ = undefined,
                 .kind = .{
                     .function = .{
-                        .params      = undefined,
+                        .params = undefined,
                         .param_count = self.arg_counter,
                         .local_count = undefined,
                     },
@@ -356,7 +348,9 @@ fn resolveNode(self: *Self, id: usize) !void {
             v.symbol = try self.reference(.{
                 .name = v.name.where,
                 .type_ = undefined,
-                .kind = .{ .variable = undefined, },
+                .kind = .{
+                    .variable = undefined,
+                },
             });
         },
 
@@ -380,29 +374,39 @@ fn resolveNode(self: *Self, id: usize) !void {
 }
 
 pub fn dump(self: *Self, writer: anytype) !void {
-
     try writer.print("---------- Symbol Table Dump ----------\n", .{});
     for (self.symbols.items, 0..) |symbol, i| {
         const indent = switch (symbol.kind) {
             .function => "",
             .variable => "    ",
         };
-        try writer.print("{s}Symbol {s} ({d}): ", .{ indent, symbol.name, i, });
+        try writer.print("{s}Symbol {s} ({d}): ", .{
+            indent,
+            symbol.name,
+            i,
+        });
         switch (symbol.kind) {
             .function => |v| {
-                try writer.print(
-                    "function with {d} parameter(s)",
-                    .{ v.param_count, }
-                );
-                try writer.print(", return type: {0s}\n", .{ @tagName(symbol.type_), });
+                try writer.print("function with {d} parameter(s)", .{
+                    v.param_count,
+                });
+                try writer.print(", return type: {0s}\n", .{
+                    @tagName(symbol.type_),
+                });
             },
             .variable => |v| {
                 switch (v) {
-                    .param  => |u| try writer.print("param ({d})", .{ u, }),
-                    .local  => |u| try writer.print("local ({d})", .{ u, }),
+                    .param => |u| try writer.print("param ({d})", .{
+                        u,
+                    }),
+                    .local => |u| try writer.print("local ({d})", .{
+                        u,
+                    }),
                     .global => |_| try writer.print("global", .{}),
                 }
-                try writer.print(", type: {0s}\n", .{ @tagName(symbol.type_), });
+                try writer.print(", type: {0s}\n", .{
+                    @tagName(symbol.type_),
+                });
             },
         }
     }

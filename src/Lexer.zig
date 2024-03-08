@@ -1,40 +1,81 @@
-
 const std = @import("std");
 const Self = @This();
 
 const Error = @import("Error.zig");
 const Token = @import("Token.zig");
 
-const keywords = std.ComptimeStringMap(
-    Token.Kind,
+const keywords = std.ComptimeStringMap(Token.Kind, .{
     .{
-        .{ "if",       .@"if",       },
-        .{ "else",     .@"else",     },
-        .{ "while",    .@"while",    },
-        .{ "let",      .@"let",      },
-        .{ "fn",       .@"fn",       },
-        .{ "return",   .@"return",   },
-        .{ "break",    .@"break",    },
-        .{ "print",    .@"print",    },
-        .{ "continue", .@"continue", },
-        .{ "and",      .@"and",      },
-        .{ "or",       .@"or",       },
-        .{ "int",      .@"int",      },
-        .{ "bool",     .@"bool",     },
-        .{ "true",     .@"true",     },
-        .{ "false",    .@"false",    },
-    }
-);
+        "if",
+        .@"if",
+    },
+    .{
+        "else",
+        .@"else",
+    },
+    .{
+        "while",
+        .@"while",
+    },
+    .{
+        "let",
+        .let,
+    },
+    .{
+        "fn",
+        .@"fn",
+    },
+    .{
+        "return",
+        .@"return",
+    },
+    .{
+        "break",
+        .@"break",
+    },
+    .{
+        "print",
+        .print,
+    },
+    .{
+        "continue",
+        .@"continue",
+    },
+    .{
+        "and",
+        .@"and",
+    },
+    .{
+        "or",
+        .@"or",
+    },
+    .{
+        "int",
+        .int,
+    },
+    .{
+        "bool",
+        .bool,
+    },
+    .{
+        "true",
+        .true,
+    },
+    .{
+        "false",
+        .false,
+    },
+});
 
 source: []const u8,
-index:  usize,
+index: usize,
 peeked: ?Token,
 errors: std.ArrayList(Error),
 
 pub fn init(source: []const u8, allocator: std.mem.Allocator) Self {
     return .{
         .source = source,
-        .index  = 0,
+        .index = 0,
         .peeked = null,
         .errors = std.ArrayList(Error).init(allocator),
     };
@@ -45,28 +86,22 @@ pub fn deinit(self: *Self) void {
 }
 
 pub fn dump(self: *Self, writer: anytype) !void {
-
     try writer.print("---------- Lexer dump ----------\n", .{});
     while (try self.take()) |token| {
-        try writer.print(
-            "{0s: <16}{1s}\n",
-            .{
-                @tagName(token.kind),
-                token.where,
-            }
-        );
+        try writer.print("{0s: <16}{1s}\n", .{
+            @tagName(token.kind),
+            token.where,
+        });
     }
 }
 
 pub fn reset(self: *Self) void {
-
     self.index = 0;
     self.peeked = null;
     self.errors.clearRetainingCapacity();
 }
 
 pub fn take(self: *Self) !?Token {
-
     var curr: u8 = undefined;
     var begin: usize = undefined;
 
@@ -114,7 +149,7 @@ pub fn take(self: *Self) !?Token {
     if (single) |kind| {
         return .{
             .kind = kind,
-            .where= self.source[begin..self.index],
+            .where = self.source[begin..self.index],
         };
     }
 
@@ -128,28 +163,27 @@ pub fn take(self: *Self) !?Token {
     } else false;
 
     const multi: ?Token.Kind = switch (curr) {
-        '+'  => if (eql) .@"+=" else .@"+",
-        '-'  => if (eql) .@"-=" else .@"-",
-        '*'  => if (eql) .@"*=" else .@"*",
-        '/'  => if (eql) .@"/=" else .@"/",
-        '%'  => if (eql) .@"%=" else .@"%",
-        '!'  => if (eql) .@"!=" else .@"!",
-        '='  => if (eql) .@"==" else .@"=",
-        '<'  => if (eql) .@"<=" else .@"<",
-        '>'  => if (eql) .@">=" else .@">",
+        '+' => if (eql) .@"+=" else .@"+",
+        '-' => if (eql) .@"-=" else .@"-",
+        '*' => if (eql) .@"*=" else .@"*",
+        '/' => if (eql) .@"/=" else .@"/",
+        '%' => if (eql) .@"%=" else .@"%",
+        '!' => if (eql) .@"!=" else .@"!",
+        '=' => if (eql) .@"==" else .@"=",
+        '<' => if (eql) .@"<=" else .@"<",
+        '>' => if (eql) .@">=" else .@">",
         else => null,
     };
 
     if (multi) |kind| {
         return .{
-            .kind  = kind,
+            .kind = kind,
             .where = self.source[begin..self.index],
         };
     }
 
     // Identifier
     if (alpha(curr)) {
-
         while (self.peekChar()) |c| {
             if (alphaNumeric(c)) {
                 _ = self.takeChar();
@@ -159,14 +193,13 @@ pub fn take(self: *Self) !?Token {
         const name = self.source[begin..self.index];
         const kind = keywords.get(name) orelse .identifier;
         return .{
-            .kind  = kind,
+            .kind = kind,
             .where = name,
         };
     }
 
     // Numeric constant
     if (numeric(curr)) {
-
         while (self.peekChar()) |c| {
             if (numeric(c)) {
                 _ = self.takeChar();
@@ -174,7 +207,7 @@ pub fn take(self: *Self) !?Token {
         }
 
         return .{
-            .kind  = .literal,
+            .kind = .literal,
             .where = self.source[begin..self.index],
         };
     }
@@ -185,11 +218,13 @@ pub fn take(self: *Self) !?Token {
     try self.errors.append(.{
         .stage = .lexing,
         .where = location,
-        .kind  = .{ .unexpected_character = self.source[begin..self.index], },
+        .kind = .{
+            .unexpected_character = self.source[begin..self.index],
+        },
     });
 
     return .{
-        .kind  = .err,
+        .kind = .err,
         .where = location,
     };
 }
@@ -203,7 +238,6 @@ pub fn peek(self: *Self) !?Token {
 }
 
 fn takeChar(self: *Self) ?u8 {
-
     if (self.index < self.source.len) {
         defer self.index += 1;
         return self.source[self.index];
@@ -211,15 +245,13 @@ fn takeChar(self: *Self) ?u8 {
 }
 
 fn peekChar(self: *Self) ?u8 {
-
     if (self.index < self.source.len) {
         return self.source[self.index];
     } else return null;
 }
 
 fn alpha(char: u8) bool {
-    return
-        ('a' <= char and char <= 'z') or
+    return ('a' <= char and char <= 'z') or
         ('A' <= char and char <= 'Z') or
         char == '_';
 }

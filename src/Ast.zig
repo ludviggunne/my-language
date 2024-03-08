@@ -1,4 +1,3 @@
-
 const std = @import("std");
 const Self = @This();
 const Token = @import("Token.zig");
@@ -8,7 +7,6 @@ root: usize,
 nodes: std.ArrayList(Node),
 
 pub const Node = union(enum) {
-
     empty,
     break_statement: []const u8,
     continue_statement: []const u8,
@@ -19,44 +17,44 @@ pub const Node = union(enum) {
     },
 
     function: struct {
-        symbol:      usize = undefined,
-        name:        Token,
+        symbol: usize = undefined,
+        name: Token,
         return_type: Type,
-        params:      ?usize, // may be empty
-        body:        usize,
+        params: ?usize, // may be empty
+        body: usize,
     },
 
     parameter_list: struct {
         symbol: usize = undefined,
-        name:   Token,
-        type_:  Type,
-        next:   ?usize,
+        name: Token,
+        type_: Type,
+        next: ?usize,
     },
 
     declaration: struct {
         symbol: usize = undefined,
-        name:   Token,
-        type_:  Type,
+        name: Token,
+        type_: Type,
         global: bool,
-        expr:   usize,
+        expr: usize,
     },
 
     assignment: struct {
-        symbol:   usize = undefined,
-        name:     Token,
+        symbol: usize = undefined,
+        name: Token,
         operator: Token,
-        expr:     usize,
+        expr: usize,
     },
 
     binary: struct {
-        left:     usize,
-        right:    usize,
+        left: usize,
+        right: usize,
         operator: Token,
     },
 
     unary: struct {
         operator: Token,
-        operand:  usize,
+        operand: usize,
     },
 
     call: struct {
@@ -77,25 +75,25 @@ pub const Node = union(enum) {
 
     statement_list: struct {
         statement: usize,
-        next:      ?usize,
+        next: ?usize,
     },
 
     if_statement: struct {
-        keyword:    Token,
-        condition:  usize,
-        block:      usize,
+        keyword: Token,
+        condition: usize,
+        block: usize,
         else_block: ?usize,
     },
 
     while_statement: struct {
-        keyword:   Token,
+        keyword: Token,
         condition: usize,
-        block:     usize,
+        block: usize,
     },
 
     return_statement: struct {
         keyword: Token,
-        expr:    usize,
+        expr: usize,
     },
 
     print_statement: struct {
@@ -104,7 +102,7 @@ pub const Node = union(enum) {
 
     variable: struct {
         symbol: usize = undefined,
-        name:   Token,
+        name: Token,
     },
 
     constant: struct {
@@ -119,7 +117,6 @@ pub const Node = union(enum) {
 };
 
 pub fn init(allocator: std.mem.Allocator) Self {
-
     return .{
         .root = 0,
         .nodes = std.ArrayList(Node).init(allocator),
@@ -131,27 +128,18 @@ pub fn deinit(self: *Self) void {
 }
 
 pub fn push(self: *Self, node: Node) !usize {
-
     try self.nodes.append(node);
     return self.nodes.items.len - 1;
 }
 
-pub fn dump(self: *Self, writer: anytype, allocator: std.mem.Allocator) !void{
-
+pub fn dump(self: *Self, writer: anytype, allocator: std.mem.Allocator) !void {
     try writer.print("---------- AST Dump ----------\n", .{});
     var bars = std.ArrayList(bool).init(allocator);
     defer bars.deinit();
     try self.dumpNode(self.root, writer, 0, &bars);
 }
 
-fn dumpNode(
-    self: *Self,
-    id: usize,
-    writer: anytype,
-    i: usize,
-    bars: *std.ArrayList(bool)
-) !void {
-
+fn dumpNode(self: *Self, id: usize, writer: anytype, i: usize, bars: *std.ArrayList(bool)) !void {
     const node = &self.nodes.items[id];
     // Ignore parenthesis
     switch (node.*) {
@@ -177,7 +165,6 @@ fn dumpNode(
     defer unsetBar(bars, i);
 
     switch (node.*) {
-
         .empty => try writer.print("empty\n", .{}),
 
         .toplevel_list => |v| {
@@ -192,7 +179,9 @@ fn dumpNode(
         },
 
         .function => |v| {
-            try writer.print("function \"{s}\"\n", .{ v.name.where, });
+            try writer.print("function \"{s}\"\n", .{
+                v.name.where,
+            });
             try spacing(writer, i + 1, bars);
             if (v.params) |params| {
                 try self.dumpNode(params, writer, i + 1, bars);
@@ -202,7 +191,9 @@ fn dumpNode(
         },
 
         .parameter_list => |v| {
-            try writer.print("param \"{s}\"\n", .{ v.name.where, });
+            try writer.print("param \"{s}\"\n", .{
+                v.name.where,
+            });
             if (v.next == null) unsetBar(bars, i);
             try spacing(writer, i + 1, bars);
             if (v.next) |next| {
@@ -230,24 +221,28 @@ fn dumpNode(
         },
 
         .declaration => |v| {
-            try writer.print("declaration \"{s}\"\n", .{ v.name.where, });
+            try writer.print("declaration \"{s}\"\n", .{
+                v.name.where,
+            });
             try spacing(writer, i + 1, bars);
             unsetBar(bars, i);
             try self.dumpNode(v.expr, writer, i + 1, bars);
         },
 
         .assignment => |v| {
-            try writer.print(
-                "assignment \"{s}\" ({s})\n",
-                .{ v.name.where, @tagName(v.operator.kind), }
-            );
+            try writer.print("assignment \"{s}\" ({s})\n", .{
+                v.name.where,
+                @tagName(v.operator.kind),
+            });
             try spacing(writer, i + 1, bars);
             unsetBar(bars, i);
             try self.dumpNode(v.expr, writer, i + 1, bars);
         },
 
         .binary => |v| {
-            try writer.print("binary ({s})\n", .{ @tagName(v.operator.kind), });
+            try writer.print("binary ({s})\n", .{
+                @tagName(v.operator.kind),
+            });
             try spacing(writer, i + 1, bars);
             try self.dumpNode(v.left, writer, i + 1, bars);
             unsetBar(bars, i);
@@ -255,14 +250,18 @@ fn dumpNode(
         },
 
         .unary => |v| {
-            try writer.print("unary ({s})\n", .{ @tagName(v.operator.kind), });
+            try writer.print("unary ({s})\n", .{
+                @tagName(v.operator.kind),
+            });
             try spacing(writer, i + 1, bars);
             unsetBar(bars, i);
             try self.dumpNode(v.operand, writer, i + 1, bars);
         },
 
         .call => |v| {
-            try writer.print("call \"{s}\"\n", .{ v.name.where, });
+            try writer.print("call \"{s}\"\n", .{
+                v.name.where,
+            });
             try spacing(writer, i + 1, bars);
             unsetBar(bars, i);
             if (v.args) |args| {
@@ -276,7 +275,7 @@ fn dumpNode(
             if (v.next == null) unsetBar(bars, i);
             try self.dumpNode(v.expr, writer, i + 1, bars);
             if (v.next) |next| {
-            unsetBar(bars, i);
+                unsetBar(bars, i);
                 try self.dumpNode(next, writer, i + 1, bars);
             }
         },
@@ -307,7 +306,9 @@ fn dumpNode(
 
         .if_statement => |v| {
             const str = if (v.else_block) |_| "if-else\n" else "if\n";
-            try writer.print("{s}", .{ str, });
+            try writer.print("{s}", .{
+                str,
+            });
             try spacing(writer, i + 1, bars);
             try self.dumpNode(v.condition, writer, i + 1, bars);
             try self.dumpNode(v.block, writer, i + 1, bars);
@@ -326,25 +327,29 @@ fn dumpNode(
         },
 
         .variable => |v| {
-            try writer.print("variable \"{s}\"\n", .{ v.name.where, });
+            try writer.print("variable \"{s}\"\n", .{
+                v.name.where,
+            });
         },
 
         .constant => |v| {
             // Pick field depending on wether we've done constant folding or not
             if (v.token) |token| {
-                try writer.print("constant ({s})\n", .{ token.where, });
+                try writer.print("constant ({s})\n", .{
+                    token.where,
+                });
             } else {
-                try writer.print("constant ({d})\n", .{ v.value, });
+                try writer.print("constant ({d})\n", .{
+                    v.value,
+                });
             }
         },
 
         .parenthesized => unreachable,
     }
-
 }
 
 fn spacing(writer: anytype, i: usize, bars: *std.ArrayList(bool)) !void {
-
     if (i > 0) {
         for (0..i - 1) |j| {
             if (bars.items[j]) {
@@ -358,7 +363,6 @@ fn spacing(writer: anytype, i: usize, bars: *std.ArrayList(bool)) !void {
 }
 
 fn setBar(bars: *std.ArrayList(bool), at: usize) !void {
-
     while (at >= bars.items.len) {
         try bars.append(false);
     }
@@ -367,6 +371,5 @@ fn setBar(bars: *std.ArrayList(bool), at: usize) !void {
 }
 
 fn unsetBar(bars: *std.ArrayList(bool), at: usize) void {
-
     bars.items[at] = false;
 }

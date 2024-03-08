@@ -1,17 +1,15 @@
-
 const std = @import("std");
 const Ast = @import("Ast.zig");
 const SymbolTable = @import("SymbolTable.zig");
 const Error = @import("Error.zig");
 const Self = @This();
 
-ast:       *Ast,
-symtab:    *SymbolTable,
-errors:    std.ArrayList(Error),
+ast: *Ast,
+symtab: *SymbolTable,
+errors: std.ArrayList(Error),
 top_level: bool,
 
 pub fn init(ast: *Ast, symtab: *SymbolTable, allocator: std.mem.Allocator) Self {
-
     return .{
         .ast = ast,
         .symtab = symtab,
@@ -21,12 +19,10 @@ pub fn init(ast: *Ast, symtab: *SymbolTable, allocator: std.mem.Allocator) Self 
 }
 
 pub fn deinit(self: *Self) void {
-
     self.errors.deinit();
 }
 
 pub fn fold(self: *Self) !void {
-
     try self.foldNode(self.ast.root);
     if (self.errors.items.len > 0) {
         return error.ConstantError;
@@ -34,7 +30,6 @@ pub fn fold(self: *Self) !void {
 }
 
 fn getConstOrNull(self: *Self, node: usize) ?i64 {
-
     return switch (self.ast.nodes.items[node]) {
         .constant => |v| v.value,
         else => null,
@@ -42,20 +37,14 @@ fn getConstOrNull(self: *Self, node: usize) ?i64 {
 }
 
 fn pushError(self: *Self, err: Error) !void {
-
     try self.errors.append(err);
 }
 
 fn foldNode(self: *Self, id: usize) !void {
-
-    var node = &self.ast.nodes.items[id];
+    const node = &self.ast.nodes.items[id];
 
     switch (node.*) {
-
-        .empty,
-        .break_statement,
-        .continue_statement,
-        .parameter_list => {},
+        .empty, .break_statement, .continue_statement, .parameter_list => {},
         .variable => |v| {
             if (self.top_level) {
                 const symbol = &self.symtab.symbols.items[v.symbol];
@@ -177,20 +166,17 @@ fn foldNode(self: *Self, id: usize) !void {
 
         // CONSTANT
         .constant => |*v| switch (v.token.?.kind) {
-            .literal => v.value = std.fmt.parseInt(i64, v.token.?.where, 10)
-                catch unreachable, // string is validated during lexing
-            .@"true" => v.value = 1,
-            .@"false" => v.value = 0,
+            .literal => v.value = std.fmt.parseInt(i64, v.token.?.where, 10) catch unreachable, // string is validated during lexing
+            .true => v.value = 1,
+            .false => v.value = 0,
             else => unreachable,
         },
 
         // UNARY
         .unary => |*v| {
-
             try self.foldNode(v.operand);
 
             if (self.getConstOrNull(v.operand)) |operand| {
-
                 const value = switch (v.operator.kind) {
                     .@"-" => -operand,
                     .@"!" => operand ^ @as(i64, 1),
@@ -203,13 +189,11 @@ fn foldNode(self: *Self, id: usize) !void {
 
         // BINARY
         .binary => |*v| {
-
             try self.foldNode(v.left);
             try self.foldNode(v.right);
 
             if (self.getConstOrNull(v.left)) |left| {
                 if (self.getConstOrNull(v.right)) |right| {
-
                     const value = switch (v.operator.kind) {
                         .@"+" => left + right,
                         .@"-" => left - right,
@@ -238,14 +222,14 @@ fn foldNode(self: *Self, id: usize) !void {
                             break :mod @mod(left, right);
                         },
                         .@"and" => left & right,
-                        .@"or"  => left | right,
+                        .@"or" => left | right,
                         else => comparison: {
                             const as_bool = switch (v.operator.kind) {
-                                .@"<"  => left <  right,
+                                .@"<" => left < right,
                                 .@"<=" => left <= right,
                                 .@"==" => left == right,
                                 .@">=" => left >= right,
-                                .@">"  => left >  right,
+                                .@">" => left > right,
                                 .@"!=" => left != right,
                                 else => unreachable, // illegal binary operator
                             };
@@ -253,7 +237,12 @@ fn foldNode(self: *Self, id: usize) !void {
                         },
                     };
 
-                    node.* = .{ .constant = .{ .type_ = undefined, .value = value, }, };
+                    node.* = .{
+                        .constant = .{
+                            .type_ = undefined,
+                            .value = value,
+                        },
+                    };
                 }
             }
         },
